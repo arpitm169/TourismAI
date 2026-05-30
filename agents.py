@@ -24,7 +24,7 @@ Agents
 3. RecommendationAgent   — Strategic destination development advice
 4. SustainabilityAgent   — Eco-optimisation and carrying capacity
 
-Author : Tourism-AI Team
+Author : Arpit Malhotra
 Version: 2.0.0
 """
 

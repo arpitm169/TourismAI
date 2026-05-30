@@ -16,8 +16,13 @@ import os
 import time
 import warnings
 from pathlib import Path
-
+import joblib
 import numpy as np
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
@@ -431,6 +436,9 @@ def _init_session() -> None:
         "data_loaded"  : False,
         "models_trained": False,
         "rag_built"    : False,
+        "shap_explainer"    : None,
+        "shap_values_train" : None,
+        "shap_X_train"      : None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -619,7 +627,14 @@ def _train_models() -> None:
     if df is None or prep is None:
         st.error("No data loaded.")
         return
-
+    # Pre-load SHAP artifacts from disk if already saved from a previous run
+    if SHAP_AVAILABLE and st.session_state.shap_explainer is None:
+        try:
+            st.session_state.shap_explainer    = joblib.load("models/shap_explainer.joblib")
+            st.session_state.shap_values_train = joblib.load("models/shap_values_train.joblib")
+            st.session_state.shap_X_train      = joblib.load("models/shap_X_train.joblib")
+        except FileNotFoundError:
+            pass
     bar  = st.progress(0, "Training classifer…")
     try:
         metrics, clf, rev_reg, vis_reg = train_all_models(df, prep)
@@ -629,6 +644,62 @@ def _train_models() -> None:
         st.session_state.rev_reg       = rev_reg
         st.session_state.vis_reg       = vis_reg
         st.session_state.models_trained = True
+        # ── SHAP explainer ───────────────────────────────────────────────────
+        if SHAP_AVAILABLE:
+            try:
+                # Extract the XGBoost base estimator from inside the stacking model.
+                # clf.model is CalibratedClassifierCV → .estimator is StackingClassifier
+                # → .estimators_ is list of fitted (name, estimator) tuples
+                calibrated    = clf.model                         # CalibratedClassifierCV
+                xgb_estimator = None
+
+                try:
+                    # Path 1: calibrated.estimator is the StackingClassifier directly
+                    stacker = calibrated.estimator
+                    if hasattr(stacker, "estimators_"):
+                        for item in stacker.estimators_:
+                            est  = item[1] if isinstance(item, tuple) else item
+                            name = item[0] if isinstance(item, tuple) else type(est).__name__
+                            if "xgb" in name.lower() or "xgb" in type(est).__name__.lower():
+                                xgb_estimator = est
+                                break
+
+                    # Path 2: dig through calibrated_classifiers_ (cv=3 creates 3 folds)
+                    if xgb_estimator is None and hasattr(calibrated, "calibrated_classifiers_"):
+                        for cal_clf in calibrated.calibrated_classifiers_:
+                            base = getattr(cal_clf, "estimator", None)
+                            if base is None:
+                                continue
+                            if "xgb" in type(base).__name__.lower():
+                                xgb_estimator = base
+                                break
+                            if hasattr(base, "estimators_"):
+                                for item in base.estimators_:
+                                    est = item[1] if isinstance(item, tuple) else item
+                                    if "xgb" in type(est).__name__.lower():
+                                        xgb_estimator = est
+                                        break
+                            if xgb_estimator is not None:
+                                break
+                except Exception as dig_err:
+                    st.warning(f"Could not extract XGBoost from model structure: {dig_err}")
+
+                if xgb_estimator is not None:
+                    explainer   = shap.TreeExplainer(xgb_estimator)
+                    clf_feats   = prep.get_classification_features()
+                    X_tr_shap, _, _, _ = prep.split(
+                        df, features=clf_feats, target="High_Revenue_Potential"
+                    )
+                    shap_vals   = explainer.shap_values(X_tr_shap)
+                    joblib.dump(explainer,  "models/shap_explainer.joblib")
+                    joblib.dump(shap_vals,  "models/shap_values_train.joblib")
+                    joblib.dump(X_tr_shap,  "models/shap_X_train.joblib")
+                    st.session_state.shap_explainer   = explainer
+                    st.session_state.shap_values_train = shap_vals
+                    st.session_state.shap_X_train     = X_tr_shap
+                    st.toast("🔍 SHAP explainer saved!", icon="✅")
+            except Exception as e:
+                st.warning(f"SHAP explainer could not be built: {e}")
 
         # Update agent context
         eda = prep.get_eda_summary(df)
@@ -1057,6 +1128,91 @@ def page_predict() -> None:
           <div class="metric-delta">90% CI: {int(vis_lo[0]):,} - {int(vis_hi[0]):,}</div>
         </div>
         """, unsafe_allow_html=True)
+        # ── SHAP: Why this prediction? ───────────────────────────────────────
+        st.divider()
+
+        if not SHAP_AVAILABLE:
+            st.info("Install `shap` (`pip install shap`) to enable explainability charts.")
+        else:
+            explainer   = st.session_state.get("shap_explainer")
+            shap_vals   = st.session_state.get("shap_values_train")
+            shap_X_tr   = st.session_state.get("shap_X_train")
+
+            if explainer is None:
+                # Try loading from disk (handles page refresh without retraining)
+                try:
+                    explainer = joblib.load("models/shap_explainer.joblib")
+                    shap_vals = joblib.load("models/shap_values_train.joblib")
+                    shap_X_tr = joblib.load("models/shap_X_train.joblib")
+                    st.session_state.shap_explainer    = explainer
+                    st.session_state.shap_values_train = shap_vals
+                    st.session_state.shap_X_train      = shap_X_tr
+                except FileNotFoundError:
+                    st.info("SHAP explainer not found. Train models first to generate it.")
+                    explainer = None
+
+            if explainer is not None:
+                # ── Per-prediction waterfall chart ───────────────────────────
+                st.markdown("### 🔍 Why this prediction?")
+                st.caption(
+                    "The chart below shows which features pushed the model towards "
+                    "or away from classifying this destination as High Revenue Potential. "
+                    "Red bars increase the prediction; blue bars decrease it."
+                )
+                try:
+                    import matplotlib.pyplot as plt
+                    shap_vals_single = explainer.shap_values(X_clf)
+                    expected_val     = explainer.expected_value
+
+                    # shap_values may be a list [class0, class1] for binary classifiers
+                    if isinstance(shap_vals_single, list):
+                        sv = shap_vals_single[1][0]   # class-1 SHAP values, first row
+                        ev = expected_val[1] if hasattr(expected_val, '__len__') else expected_val
+                    else:
+                        sv = shap_vals_single[0]
+                        ev = expected_val
+
+                    explanation = shap.Explanation(
+                        values        = sv,
+                        base_values   = ev,
+                        data          = X_clf.values[0],
+                        feature_names = list(X_clf.columns),
+                    )
+
+                    fig_wf, ax_wf = plt.subplots(figsize=(10, 5))
+                    shap.plots.waterfall(explanation, max_display=12, show=False)
+                    fig_wf = plt.gcf()
+                    fig_wf.patch.set_facecolor("#faf8ff")
+                    st.pyplot(fig_wf, use_container_width=True)
+                    plt.close(fig_wf)
+                except Exception as e:
+                    st.warning(f"Waterfall chart could not be rendered: {e}")
+
+                # ── Global feature importance summary ────────────────────────
+                with st.expander("📊 Global Feature Importance (SHAP)", expanded=False):
+                    st.caption(
+                        "Average absolute SHAP value across the training set — "
+                        "shows which features matter most to the model overall."
+                    )
+                    try:
+                        import matplotlib.pyplot as plt
+                        fig_sum, _ = plt.subplots(figsize=(10, 5))
+
+                        sv_global = shap_vals[1] if isinstance(shap_vals, list) else shap_vals
+
+                        shap.summary_plot(
+                            sv_global,
+                            shap_X_tr,
+                            plot_type  = "bar",
+                            max_display = 15,
+                            show       = False,
+                        )
+                        fig_sum = plt.gcf()
+                        fig_sum.patch.set_facecolor("#faf8ff")
+                        st.pyplot(fig_sum, use_container_width=True)
+                        plt.close(fig_sum)
+                    except Exception as e:
+                        st.warning(f"Summary plot could not be rendered: {e}")
 
 
 # ── 5. Agent Chat ─────────────────────────────────────────────────────────────
