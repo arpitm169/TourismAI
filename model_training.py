@@ -85,9 +85,9 @@ RANDOM_STATE = 42
 MODEL_DIR    = Path("models")
 MODEL_DIR.mkdir(exist_ok=True)
 
-N_OPTUNA_TRIALS = int(os.getenv("OPTUNA_TRIALS", "5"))  # Bayesian HP search budget
-N_CV_FOLDS      = 5           # Stratified K-Fold count
-N_JOBS          = int(os.getenv("MODEL_N_JOBS", "1"))
+N_OPTUNA_TRIALS = int(os.getenv("OPTUNA_TRIALS", "3"))  # Bayesian HP search budget
+N_CV_FOLDS      = 3           # Stratified K-Fold count
+N_JOBS          = int(os.getenv("MODEL_N_JOBS", "-1"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -143,7 +143,7 @@ def _tune_classifier_hp(X_train, y_train) -> Dict:
             lgb_p = _optuna_lgb_params(trial)
             params["lgb"] = lgb_p
 
-        # Build a quick stacking ensemble and score with 3-fold CV
+        # Build a quick stacking ensemble and score with 2-fold CV
         estimators = []
         if XGB_AVAILABLE:
             estimators.append(("xgb", xgb.XGBClassifier(
@@ -165,7 +165,7 @@ def _tune_classifier_hp(X_train, y_train) -> Dict:
             final_estimator=LogisticRegression(max_iter=1000, random_state=RANDOM_STATE),
             cv=3, n_jobs=N_JOBS,
         )
-        skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_STATE)
+        skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=RANDOM_STATE)
         scores = cross_val_score(stack, X_train, y_train, cv=skf, scoring="recall", n_jobs=N_JOBS)
         return scores.mean()
 
@@ -232,7 +232,7 @@ class HighRevenuePotentialClassifier:
 
     def _build_xgb(self, hp: Optional[Dict] = None, early_stopping: bool = False) -> Any:
         params = hp or {
-            "n_estimators": 300, "max_depth": 7, "learning_rate": 0.05,
+            "n_estimators": 200, "max_depth": 7, "learning_rate": 0.05,
             "subsample": 0.85, "colsample_bytree": 0.80,
             "min_child_weight": 3, "gamma": 0.1,
             "reg_alpha": 0.1, "reg_lambda": 1.5,
@@ -250,7 +250,7 @@ class HighRevenuePotentialClassifier:
 
     def _build_lgb(self, hp: Optional[Dict] = None, early_stopping: bool = False) -> Any:
         params = hp or {
-            "n_estimators": 300, "max_depth": 7, "learning_rate": 0.05,
+            "n_estimators": 200, "max_depth": 7, "learning_rate": 0.05,
             "num_leaves": 63, "subsample": 0.85, "colsample_bytree": 0.80,
             "min_child_samples": 20, "reg_alpha": 0.1, "reg_lambda": 1.5,
         }
@@ -266,7 +266,7 @@ class HighRevenuePotentialClassifier:
 
     def _build_rf(self) -> Any:
         return RandomForestClassifier(
-            n_estimators  = 250,
+            n_estimators  = 150,
             max_depth     = 12,
             min_samples_split = 5,
             class_weight  = "balanced",
@@ -404,7 +404,7 @@ class HighRevenuePotentialClassifier:
         y_proba = self.model.predict_proba(X_test)[:, 1]
 
         # --- cross-validation scores ---
-        print("[CV] Running 5-fold stratified cross-validation...")
+        print(f"[CV] Running {N_CV_FOLDS}-fold stratified cross-validation...")
         self._cv_scores = self._run_cv(X_res, y_res)
         cv_summary = {
             f"cv_{k}_mean": round(np.mean(v), 2)
@@ -415,9 +415,14 @@ class HighRevenuePotentialClassifier:
             for k, v in self._cv_scores.items()
         })
 
-        # --- individual model comparison ---
-        print("[Compare] Evaluating individual base models...")
-        self._model_comparison = self._compare_models(X_test, y_test, X_res, y_res)
+        # --- individual model comparison (skipped by default for speed) ---
+        run_comparison = os.getenv("RUN_MODEL_COMPARISON", "0") == "1"
+        if run_comparison:
+            print("[Compare] Evaluating individual base models...")
+            self._model_comparison = self._compare_models(X_test, y_test, X_res, y_res)
+        else:
+            print("[Compare] Skipping individual model comparison (set RUN_MODEL_COMPARISON=1 to enable)")
+            self._model_comparison = {}
 
         # --- metrics ---
         self.metrics_ = {

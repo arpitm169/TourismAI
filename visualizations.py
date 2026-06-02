@@ -19,40 +19,45 @@ from plotly.subplots import make_subplots
 
 # ─── Colour Palette ──────────────────────────────────────────────────────────
 CHART_THEME = {
-    "bg"         : "#faf8ff",
-    "paper_bg"   : "#faf8ff",
-    "font_color" : "#374151",
-    "grid_color" : "#ede9fe",
-    "title_color": "#5b4a8a",
-    "title_size" : 15,
-    "font_family": "Inter, sans-serif",
+    "bg"         : "rgba(0,0,0,0)",
+    "paper_bg"   : "rgba(0,0,0,0)",
+    "font_color" : "#0f172a",
+    "grid_color" : "#e2e8f0",
+    "title_color": "#475569",
+    "title_size" : 14,
+    "font_family": "DM Sans, sans-serif",
 }
 
-PASTEL_COLORS = [
-    "#a78bfa",  # lavender
-    "#86efac",  # mint green
-    "#93c5fd",  # sky blue
-    "#fca5a5",  # soft coral
-    "#fcd34d",  # soft yellow
-    "#f9a8d4",  # pink
-    "#6ee7b7",  # teal
-    "#c4b5fd",  # light purple
+CHART_COLORS = [
+    "#6366f1",  # indigo
+    "#10b981",  # emerald
+    "#f59e0b",  # amber
+    "#ef4444",  # rose
+    "#3b82f6",  # blue
+    "#8b5cf6",  # violet
+    "#06b6d4",  # cyan
+    "#f97316",  # orange
 ]
 
-PASTEL_HEATMAP = [[0, "#faf8ff"], [0.5, "#c4b5fd"], [1, "#5b4a8a"]]
-PASTEL_MAP = [[0, "#ede9fe"], [0.5, "#a78bfa"], [1, "#5b4a8a"]]
+SEQUENTIAL_TEAL = ["#e0f2fe", "#0891b2", "#164e63"]
+SEQUENTIAL_INDIGO = ["#ede9fe", "#6366f1", "#312e81"]
+DIVERGING = [[0, "#ef4444"], [0.5, "#f8fafc"], [1, "#6366f1"]]
+
+PASTEL_COLORS = CHART_COLORS
+PASTEL_HEATMAP = DIVERGING
+PASTEL_MAP = SEQUENTIAL_TEAL
 
 PALETTE = {
-    "primary"   : PASTEL_COLORS[0],
-    "secondary" : PASTEL_COLORS[7],
-    "accent"    : PASTEL_COLORS[4],
-    "success"   : PASTEL_COLORS[1],
-    "danger"    : PASTEL_COLORS[3],
+    "primary"   : "#6366f1",
+    "secondary" : "#8b5cf6",
+    "accent"    : "#f59e0b",
+    "success"   : "#10b981",
+    "danger"    : "#ef4444",
     "bg"        : CHART_THEME["bg"],
     "card"      : "#ffffff",
     "text"      : CHART_THEME["font_color"],
 }
-QUALITATIVE = PASTEL_COLORS
+QUALITATIVE = CHART_COLORS
 
 
 def _apply_theme(fig: go.Figure, title: str = "") -> go.Figure:
@@ -90,24 +95,30 @@ def _apply_theme(fig: go.Figure, title: str = "") -> go.Figure:
             showgrid     = True,
             zeroline     = False,
         ),
+        hoverlabel = dict(
+            bgcolor     = "#1e293b",
+            bordercolor = "#1e293b",
+            font        = dict(color="#f8fafc", family=CHART_THEME["font_family"]),
+        ),
         legend = dict(
-            bgcolor     = "#ffffff",
-            bordercolor = "#e5d8fb",
+            bgcolor     = "rgba(255,255,255,0.86)",
+            bordercolor = "#e2e8f0",
             borderwidth = 1,
             font        = dict(color=CHART_THEME["font_color"]),
         ),
         margin = dict(l=40, r=20, t=50, b=40),
+        transition = dict(duration=300),
     )
     fig.update_xaxes(
         gridcolor=CHART_THEME["grid_color"],
-        linecolor="#e5d8fb",
+        linecolor="#e2e8f0",
         tickfont=dict(color=CHART_THEME["font_color"]),
         title_font=dict(color=CHART_THEME["font_color"]),
         zeroline=False,
     )
     fig.update_yaxes(
         gridcolor=CHART_THEME["grid_color"],
-        linecolor="#e5d8fb",
+        linecolor="#e2e8f0",
         tickfont=dict(color=CHART_THEME["font_color"]),
         title_font=dict(color=CHART_THEME["font_color"]),
         zeroline=False,
@@ -132,12 +143,13 @@ def plot_revenue_distribution(df: pd.DataFrame) -> go.Figure:
     fig = make_subplots(rows=1, cols=2,
                         subplot_titles=["Revenue Distribution", "Log Revenue"])
     fig.add_trace(go.Histogram(x=df["Revenue"], nbinsx=40,
-                               marker_color="#a78bfa", opacity=0.8,
+                               marker_color=CHART_COLORS[0], opacity=0.82,
                                name="Revenue"), row=1, col=1)
     fig.add_trace(go.Histogram(x=np.log1p(df["Revenue"]), nbinsx=40,
-                               marker_color="#c4b5fd", opacity=0.8,
+                               marker_color=CHART_COLORS[1], opacity=0.82,
                                name="Log Revenue"), row=1, col=2)
     fig.update_layout(showlegend=False)
+    fig.update_traces(marker_line_color="#ffffff", marker_line_width=1)
     fig = _apply_theme(fig, title="Revenue Distribution")
     return fig
 
@@ -149,9 +161,14 @@ def plot_top_destinations(df: pd.DataFrame, n: int = 15) -> go.Figure:
         top.sort_values("Revenue"),
         x="Revenue", y="Label", orientation="h",
         color="Category", title=f"Top {n} Destinations by Revenue",
-        color_discrete_sequence=QUALITATIVE,
+        color_discrete_sequence=CHART_COLORS,
     )
-    fig.update_traces(texttemplate="$%{x:,.0f}", textposition="outside")
+    fig.update_traces(
+        marker=dict(line=dict(width=0), cornerradius=6),
+        texttemplate="$%{x:,.0f}",
+        textfont_color="white",
+        textposition="inside",
+    )
     fig = _apply_theme(fig, title=f"Top {n} Destinations by Revenue")
     return fig
 
@@ -169,12 +186,14 @@ def plot_category_breakdown(df: pd.DataFrame) -> go.Figure:
                                         "Avg Visitors by Category"])
     fig.add_trace(
         go.Bar(x=grp["Category"], y=grp["Avg_Revenue"],
-               marker_color="#a78bfa", name="Revenue"),
+               marker_color=CHART_COLORS[0], marker_cornerradius=4,
+               name="Revenue"),
         row=1, col=1
     )
     fig.add_trace(
         go.Bar(x=grp["Category"], y=grp["Avg_Visitors"],
-               marker_color="#86efac", name="Visitors"),
+               marker_color=CHART_COLORS[1], marker_cornerradius=4,
+               name="Visitors"),
         row=1, col=2
     )
     fig.update_layout(showlegend=False)
@@ -200,8 +219,8 @@ def plot_country_map(df: pd.DataFrame) -> go.Figure:
         color_continuous_scale = PASTEL_MAP,
     )
     fig.update_layout(
-        geo=dict(bgcolor="#faf8ff", showframe=False,
-                 showcoastlines=True, coastlinecolor="#e5d8fb"),
+        geo=dict(bgcolor="rgba(0,0,0,0)", showframe=False,
+                 showcoastlines=True, coastlinecolor="#e2e8f0"),
         coloraxis_colorbar=dict(title="Revenue ($)"),
     )
     fig = _apply_theme(fig, title="Tourism Revenue by Country")
@@ -219,28 +238,39 @@ def plot_correlation_heatmap(df: pd.DataFrame) -> go.Figure:
         z            = corr.values,
         x            = corr.columns,
         y            = corr.index,
-        colorscale   = PASTEL_HEATMAP,
+        colorscale   = DIVERGING,
         text         = corr.values,
         texttemplate = "%{text}",
         showscale    = True,
         zmid         = 0,
+        xgap         = 2,
+        ygap         = 2,
     ))
     fig = _apply_theme(fig, title="Correlation Matrix")
     return fig
 
 
 def plot_scatter_revenue_visitors(df: pd.DataFrame) -> go.Figure:
+    scatter_kwargs = {}
+    try:
+        import statsmodels.api  # noqa: F401
+        scatter_kwargs["trendline"] = "ols"
+    except ImportError:
+        pass
+
     fig = px.scatter(
         df.sample(min(len(df), 500), random_state=42),
         x="Visitors", y="Revenue",
         color="Category", size="Rating",
         hover_data=["Location", "Country", "Rating"],
         title="Revenue vs. Visitor Count",
-        color_discrete_sequence=QUALITATIVE,
+        color_discrete_sequence=CHART_COLORS,
         opacity=0.75,
         log_x=True, log_y=True,
+        **scatter_kwargs,
     )
-    fig.update_traces(marker=dict(line=dict(color="#ffffff", width=0.6)))
+    fig.update_traces(marker=dict(size=7, opacity=0.75,
+                                  line=dict(color="#ffffff", width=0.6)))
     fig = _apply_theme(fig, title="Revenue vs. Visitor Count")
     return fig
 
@@ -251,7 +281,7 @@ def plot_rating_distribution(df: pd.DataFrame) -> go.Figure:
         box=True, points="outliers",
         color="Category",
         title="Rating Distribution by Category",
-        color_discrete_sequence=QUALITATIVE,
+        color_discrete_sequence=CHART_COLORS,
     )
     fig = _apply_theme(fig, title="Rating Distribution by Category")
     return fig
@@ -263,10 +293,12 @@ def plot_high_revenue_pie(df: pd.DataFrame) -> go.Figure:
         labels    = ["Standard Revenue", "High Revenue Potential"],
         values    = counts.values,
         hole      = 0.55,
-        marker    = dict(colors=["#a78bfa", "#86efac", "#93c5fd", "#fca5a5", "#fcd34d"]),
+        marker    = dict(colors=[CHART_COLORS[0], CHART_COLORS[2]],
+                         line=dict(color="#ffffff", width=2)),
         textfont  = dict(color="#374151"),
         textinfo  = "percent+label",
         hoverinfo = "label+value+percent",
+        pull      = [0.05, 0],
     ))
     fig.update_layout(
         annotations  = [dict(text=f"{counts.get(1, 0)}<br>High-Rev",
@@ -290,7 +322,8 @@ def plot_accommodation_impact(df: pd.DataFrame) -> go.Figure:
     for i, col in enumerate(["Avg_Revenue", "Avg_Rating"], 1):
         fig.add_trace(go.Bar(
             x=grp["Label"], y=grp[col],
-            marker_color=["#86efac", "#fca5a5"],
+            marker_color=[CHART_COLORS[1], CHART_COLORS[3]],
+            marker_cornerradius=4,
             showlegend=False,
         ), row=1, col=i)
     fig = _apply_theme(fig, title="Impact of Accommodation Availability")
@@ -322,7 +355,8 @@ def plot_feature_importances(fi: pd.Series, top_n: int = 12) -> go.Figure:
         x             = top.values,
         y             = top.index,
         orientation   = "h",
-        marker_color  = "#a78bfa",
+        marker         = dict(color=top.values, colorscale=SEQUENTIAL_INDIGO,
+                              cornerradius=4),
     ))
     fig = _apply_theme(fig, title=f"Top {top_n} Feature Importances (XGBoost)")
     return fig
@@ -340,20 +374,25 @@ def plot_metrics_gauge(metrics: Dict) -> go.Figure:
         rows=1, cols=4,
         specs=[[{"type": "indicator"}] * 4],
     )
-    colors = ["#86efac", "#a78bfa", "#93c5fd", "#fcd34d"]
+    colors = CHART_COLORS[:4]
     for i, (label, value) in enumerate(indicators, 1):
         fig.add_trace(go.Indicator(
             mode  = "gauge+number",
             value = value,
             title = {"text": label, "font": {"size": 13}},
             gauge = {
-                "axis"      : {"range": [0, 100], "tickcolor": "#e5d8fb"},
+                "axis"      : {"range": [0, 100], "tickcolor": "#e2e8f0"},
                 "bar"       : {"color": colors[i-1]},
                 "bgcolor"   : "#ffffff",
-                "bordercolor": "#e5d8fb",
+                "bordercolor": "#e2e8f0",
                 "borderwidth": 1,
+                "steps"     : [
+                    {"range": [0, 70], "color": "#f1f5f9"},
+                    {"range": [70, 90], "color": "#dbeafe"},
+                    {"range": [90, 100], "color": "#bbf7d0"},
+                ],
                 "threshold" : {
-                    "line" : {"color": "#fcd34d", "width": 2},
+                    "line" : {"color": CHART_COLORS[2], "width": 2},
                     "thickness": 0.75,
                     "value": 95,
                 },
@@ -380,7 +419,7 @@ def plot_cv_scores(cv_scores: Dict[str, List[float]]) -> go.Figure:
         rows=1, cols=len(available),
         subplot_titles=[m.title() for m in available],
     )
-    colors = PASTEL_COLORS
+    colors = CHART_COLORS
 
     for i, metric in enumerate(available, 1):
         folds = cv_scores[metric]
@@ -400,10 +439,10 @@ def plot_cv_scores(cv_scores: Dict[str, List[float]]) -> go.Figure:
         # Mean line
         fig.add_hline(
             y=mean_val, row=1, col=i,
-            line=dict(color="#fcd34d", width=2, dash="dash"),
+            line=dict(color=CHART_COLORS[2], width=2, dash="dash"),
             annotation_text=f"μ={mean_val:.1f}% ±{std_val:.1f}",
             annotation_position="top right",
-            annotation_font=dict(color="#5b4a8a", size=10),
+            annotation_font=dict(color=CHART_THEME["title_color"], size=10),
         )
 
     fig.update_yaxes(range=[80, 102])
@@ -432,7 +471,7 @@ def plot_model_comparison(comparison: Dict[str, Dict], ensemble_metrics: Dict) -
 
     model_names = list(all_models.keys())
     metrics_list = ["accuracy", "recall", "precision", "f1", "roc_auc"]
-    colors = PASTEL_COLORS
+    colors = CHART_COLORS
 
     fig = go.Figure()
     for j, metric in enumerate(metrics_list):
@@ -467,14 +506,14 @@ def plot_prediction_comparison(
     fig.add_trace(go.Scatter(
         x=actual, y=predicted,
         mode="markers",
-        marker=dict(color="#a78bfa", opacity=0.6, size=6),
+        marker=dict(color=CHART_COLORS[0], opacity=0.6, size=6),
         name="Predictions",
     ))
     mn, mx = float(np.min(actual)), float(np.max(actual))
     fig.add_trace(go.Scatter(
         x=[mn, mx], y=[mn, mx],
         mode="lines",
-        line=dict(color="#86efac", dash="dash", width=2),
+        line=dict(color=CHART_COLORS[1], dash="dash", width=2),
         name="Perfect Fit",
     ))
     fig.update_layout(
@@ -491,8 +530,10 @@ def plot_revenue_per_visitor_heatmap(df: pd.DataFrame) -> go.Figure:
         z          = pivot.values,
         x          = pivot.columns,
         y          = pivot.index,
-        colorscale = PASTEL_HEATMAP,
+        colorscale = DIVERGING,
         showscale  = True,
+        xgap       = 2,
+        ygap       = 2,
     ))
     fig.update_layout(
         xaxis_title = "Country",

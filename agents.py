@@ -40,6 +40,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 import numpy as np
 import pandas as pd
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 # ─── Graceful LangChain / Gemini imports ─────────────────────────────────────
 # All LangChain and Google-GenAI packages are wrapped in try/except so that the
@@ -69,6 +70,16 @@ except ImportError:
 
 
 DEFAULT_MODEL = "gemini-1.5-flash-latest"
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True,
+)
+def _invoke_llm(chain, inputs):
+    return chain.invoke(inputs)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -202,6 +213,7 @@ class TourismAgent:
     llm:          Any                              # ChatGoogleGenerativeAI | None
     rag_pipeline: Any                              # TourismRAGPipeline
     name:         str = field(init=False)
+    last_source:  str = field(default="mock", init=False)
 
     def __post_init__(self) -> None:
         self.name = self.role.value.replace("_", " ").title() + " Agent"
@@ -220,6 +232,7 @@ class TourismAgent:
         )
 
         if not LC_AVAILABLE or self.llm is None:
+            self.last_source = "mock"
             return self._mock_response(user_message, context, df_summary, model_metrics)
 
         system = SYSTEM_PROMPTS[self.role].strip()
@@ -239,9 +252,11 @@ class TourismAgent:
 
         try:
             chain    = prompt | self.llm
-            response = chain.invoke({})
+            response = _invoke_llm(chain, {})
+            self.last_source = "gemini"
             return response.content
         except Exception as exc:
+            self.last_source = "mock"
             return (
                 f"⚠️  LLM call failed ({type(exc).__name__}): {exc}\n\n"
                 + self._mock_response(user_message, context, df_summary, model_metrics)
@@ -545,6 +560,7 @@ class TourismMultiAgentSystem:
             "role":     role.value,
             "response": response,
             "query":    query,
+            "source":   agent.last_source,
         }
 
     def full_analysis(self, query: str) -> Dict[str, str]:

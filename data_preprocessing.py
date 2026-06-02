@@ -100,6 +100,17 @@ class TourismDataPreprocessor:
 
     # ─── Feature Engineering ─────────────────────────────────────────────────
 
+    def compute_popularity_score(self, df: pd.DataFrame, fit: bool = True) -> pd.Series:
+        """Compute Popularity_Score with scaler fit controlled by caller."""
+        cols = ["Visitors", "Rating"]
+        scaled = (
+            self.minmax.fit_transform(df[cols])
+            if fit
+            else self.minmax.transform(df[cols])
+        )
+        score = (0.6 * scaled[:, 0] + 0.4 * scaled[:, 1]) * 100
+        return pd.Series(score, index=df.index, name="Popularity_Score")
+
     def engineer_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create all derived features used by ML models."""
         df = df.copy()
@@ -123,15 +134,6 @@ class TourismDataPreprocessor:
         df["Log_RevPerVis"] = np.log1p(df["Revenue_per_Visitor"])
         df["Acc_x_Rating"] = df["Accommodation_Available"] * df["Rating"]
 
-        # ── NEW: Group-level aggregate features (target-encoded style) ───────
-        country_rev_mean = df.groupby("Country")["Revenue"].transform("mean")
-        df["Country_Rev_Mean"] = country_rev_mean
-        country_vis_mean = df.groupby("Country")["Visitors"].transform("mean")
-        df["Country_Vis_Mean"] = country_vis_mean
-        cat_rev_density = df.groupby("Category")["Revenue"].transform("sum") / \
-                          df.groupby("Category")["Revenue"].transform("count")
-        df["Category_Rev_Density"] = cat_rev_density
-
         # ── Log-transform skewed columns ─────────────────────────────────────
         df["Log_Visitors"] = np.log1p(df["Visitors"])
         df["Log_Revenue"]  = np.log1p(df["Revenue"])
@@ -152,13 +154,6 @@ class TourismDataPreprocessor:
         threshold = df["Revenue"].quantile(HIGH_REVENUE_PERCENTILE)
         self._revenue_threshold = threshold
         df["High_Revenue_Potential"] = (df["Revenue"] >= threshold).astype(int)
-
-        # ── Popularity Score (composite, 0-100) ─────────────────────────────
-        df["Popularity_Score"] = (
-            0.4 * self.minmax.fit_transform(df[["Visitors"]])[:, 0]
-            + 0.3 * self.minmax.fit_transform(df[["Rating"]])[:, 0]
-            + 0.3 * self.minmax.fit_transform(df[["Revenue_per_Visitor"]])[:, 0]
-        ) * 100
 
         return df
 
@@ -196,16 +191,13 @@ class TourismDataPreprocessor:
     def get_classification_features() -> List[str]:
         """Feature list for High_Revenue_Potential classifier."""
         return [
-            "Visitors", "Rating", "Revenue_per_Visitor",
-            "Log_Visitors", "Rating_Revenue_Index",
-            "Accommodation_Available", "Accommodation_Revenue_Boost",
-            "Visitor_Density_Score", "Popularity_Score",
+            "Visitors", "Rating", "Accommodation_Available",
+            "Log_Visitors", "Popularity_Score",
             "Category_Enc", "Country_Enc", "Rating_Band_Enc",
             "Visitor_Tier_Enc", "Location_Freq",
             # v2 features
-            "Visitors_x_Rating", "Rating_Squared", "Log_RevPerVis",
-            "Revenue_x_Acc", "Acc_x_Rating", "Country_Rev_Mean",
-            "Category_Rev_Density",
+            "Visitors_x_Rating", "Rating_Squared", "Acc_x_Rating",
+            "Country_Rev_Mean", "Category_Rev_Density",
         ]
 
     @staticmethod
@@ -248,16 +240,55 @@ class TourismDataPreprocessor:
         if features is None:
             features = self.get_classification_features()
 
-        X = df[features]
         y = df[target]
         stratify = y if y.nunique() <= 10 else None
 
-        return train_test_split(
-            X, y,
+        train_idx, test_idx = train_test_split(
+            df.index,
             test_size=test_size,
             random_state=RANDOM_STATE,
             stratify=stratify,
         )
+
+        dynamic_features = {
+            "Popularity_Score", "Country_Rev_Mean",
+            "Country_Vis_Mean", "Category_Rev_Density",
+        }
+        base_features = [f for f in features if f not in dynamic_features]
+
+        X_train = df.loc[train_idx, base_features].copy()
+        X_test = df.loc[test_idx, base_features].copy()
+        train_df = df.loc[train_idx]
+        test_df = df.loc[test_idx]
+
+        if "Popularity_Score" in features:
+            X_train["Popularity_Score"] = self.compute_popularity_score(train_df, fit=True)
+            X_test["Popularity_Score"] = self.compute_popularity_score(test_df, fit=False)
+
+        if "Country_Rev_Mean" in features:
+            country_rev_mean = train_df.groupby("Country")["Revenue"].mean()
+            fallback = country_rev_mean.mean()
+            X_train["Country_Rev_Mean"] = train_df["Country"].map(country_rev_mean).fillna(fallback)
+            X_test["Country_Rev_Mean"] = test_df["Country"].map(country_rev_mean).fillna(fallback)
+
+        if "Country_Vis_Mean" in features:
+            country_vis_mean = train_df.groupby("Country")["Visitors"].mean()
+            fallback = country_vis_mean.mean()
+            X_train["Country_Vis_Mean"] = train_df["Country"].map(country_vis_mean).fillna(fallback)
+            X_test["Country_Vis_Mean"] = test_df["Country"].map(country_vis_mean).fillna(fallback)
+
+        if "Category_Rev_Density" in features:
+            category_rev_density = train_df.groupby("Category")["Revenue"].mean()
+            fallback = category_rev_density.mean()
+            X_train["Category_Rev_Density"] = train_df["Category"].map(category_rev_density).fillna(fallback)
+            X_test["Category_Rev_Density"] = test_df["Category"].map(category_rev_density).fillna(fallback)
+
+        X_train = X_train[features]
+        X_test = X_test[features]
+        y_train = y.loc[train_idx]
+        y_test = y.loc[test_idx]
+
+        return X_train, X_test, y_train, y_test
 
     # ─── Statistics / EDA helpers ────────────────────────────────────────────
 
