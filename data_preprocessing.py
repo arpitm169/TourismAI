@@ -155,6 +155,8 @@ class TourismDataPreprocessor:
         self._revenue_threshold = threshold
         df["High_Revenue_Potential"] = (df["Revenue"] >= threshold).astype(int)
 
+        df["Popularity_Score"] = self.compute_popularity_score(df, fit=True)
+
         return df
 
     # ─── Encoding ────────────────────────────────────────────────────────────

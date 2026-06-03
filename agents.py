@@ -78,8 +78,15 @@ DEFAULT_MODEL = "gemini-1.5-flash-latest"
     retry=retry_if_exception_type(Exception),
     reraise=True,
 )
-def _invoke_llm(chain, inputs):
+def _invoke_llm_with_retry(chain, inputs):
     return chain.invoke(inputs)
+
+
+def _invoke_llm(chain, inputs):
+    try:
+        return _invoke_llm_with_retry(chain, inputs)
+    except Exception as exc:
+        return {"error": str(exc)}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -253,12 +260,18 @@ class TourismAgent:
         try:
             chain    = prompt | self.llm
             response = _invoke_llm(chain, {})
+            if isinstance(response, dict) and response.get("error"):
+                self.last_source = "mock"
+                return (
+                    f"(AI unavailable — showing data-based response) {response['error']}\n\n"
+                    + self._mock_response(user_message, context, df_summary, model_metrics)
+                )
             self.last_source = "gemini"
             return response.content
         except Exception as exc:
             self.last_source = "mock"
             return (
-                f"⚠️  LLM call failed ({type(exc).__name__}): {exc}\n\n"
+                f"(AI unavailable — showing data-based response) {str(exc)}\n\n"
                 + self._mock_response(user_message, context, df_summary, model_metrics)
             )
 

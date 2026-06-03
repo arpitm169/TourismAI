@@ -28,6 +28,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv()
+GOOGLE_API_KEY_MISSING = not bool(os.getenv("GOOGLE_API_KEY"))
 warnings.filterwarnings("ignore")
 
 # ─── Local Modules ───────────────────────────────────────────────────────────
@@ -475,6 +476,11 @@ def render_sidebar() -> str:
     with st.sidebar:
         st.markdown("## 🌍 TourismAI")
         st.markdown("*Multi-Agent Analytics Platform*")
+        if GOOGLE_API_KEY_MISSING and not os.getenv("GOOGLE_API_KEY"):
+            st.warning(
+                "No Google API key found — running in offline mock mode. "
+                "Add GOOGLE_API_KEY to your .env file for full AI responses."
+            )
         st.divider()
 
         if not st.session_state.get("auto_load_attempted"):
@@ -502,13 +508,24 @@ def render_sidebar() -> str:
             st.success(f"✅ Synthetic dataset ready ({len(st.session_state.df):,} rows)")
 
         if uploaded:
+            upload_loaded_ok = st.session_state.get("last_uploaded_file_id") == uploaded.file_id
             if st.session_state.get("last_uploaded_file_id") != uploaded.file_id:
                 with st.spinner("Loading dataset…"):
-                    import io
-                    raw = pd.read_csv(io.BytesIO(uploaded.read()))
-                    _load_and_process(raw)
-                    st.session_state.last_uploaded_file_id = uploaded.file_id
-            st.success(f"✅ Uploaded: {uploaded.name} ({len(st.session_state.df):,} rows)")
+                    try:
+                        import io
+                        raw = pd.read_csv(io.BytesIO(uploaded.read()))
+                        _load_and_process(raw)
+                        st.session_state.last_uploaded_file_id = uploaded.file_id
+                        upload_loaded_ok = True
+                    except Exception as e:
+                        upload_loaded_ok = False
+                        st.error(
+                            f"Could not load dataset: {str(e)}. Make sure it has the "
+                            "required columns: Location, Country, Category, Visitors, "
+                            "Rating, Revenue, Accommodation_Available."
+                        )
+            if upload_loaded_ok:
+                st.success(f"✅ Uploaded: {uploaded.name} ({len(st.session_state.df):,} rows)")
 
         st.divider()
 
@@ -617,9 +634,16 @@ def _load_and_process(raw: pd.DataFrame) -> None:
 def _build_rag(df: pd.DataFrame) -> None:
     with st.spinner("Building RAG vectorstore…"):
         rag = TourismRAGPipeline()
-        n   = rag.ingest_dataframe(df)
         st.session_state.rag       = rag
-        st.session_state.rag_built = True
+        try:
+            n = rag.ingest_dataframe(df)
+            st.session_state.rag_built = True
+        except Exception as e:
+            st.session_state.rag_built = True
+            st.warning(
+                "Vector database failed to build — agent chat will use keyword "
+                f"search as fallback. {str(e)}"
+            )
     # Build agents (mock mode until API key set)
     _build_agents(model="gemini-2.0-flash")
 
@@ -732,7 +756,10 @@ def _train_models() -> None:
         st.toast("🎉 All models trained!", icon="🚀")
     except Exception as e:
         bar.empty()
-        st.error(f"Training failed: {e}")
+        st.error(
+            f"Model training failed: {str(e)}. Try reducing the dataset size "
+            "or check your dependencies."
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1264,6 +1291,8 @@ def page_predict() -> None:
         category   = c4.selectbox("Category", sorted(df["Category"].unique()))
         country    = c5.selectbox("Country",  sorted(df["Country"].unique()))
         acc        = c6.radio("Accommodation", ["Yes", "No"])
+        confidence = st.slider("Confidence level", min_value=0.80, max_value=0.95,
+                               value=0.90, step=0.05, format="%.0f%%")
 
         submitted = st.form_submit_button("🚀 Predict", use_container_width=True)
 
@@ -1321,14 +1350,22 @@ def page_predict() -> None:
         X_rev = pd.DataFrame([[values.get(f, 0) for f in rev_feat_names]],
                              columns=rev_feat_names)
         rev_pred = rev.predict(X_rev)[0]
-        rev_lo, rev_hi = rev.predict_interval(X_rev, confidence=0.90)
+        rev_lo, rev_hi = rev.predict_interval(X_rev, confidence=confidence)
+        rev_lo, rev_hi = rev_lo[0], rev_hi[0]
 
         # ── Visitors Regression ──────────────────────────────────────────────
         vis_feat_names = prep.get_visitors_regression_features()
         X_vis = pd.DataFrame([[values.get(f, 0) for f in vis_feat_names]],
                              columns=vis_feat_names)
         vis_pred = vis.predict(X_vis)[0]
-        vis_lo, vis_hi = vis.predict_interval(X_vis, confidence=0.90)
+        vis_lo, vis_hi = vis.predict_interval(X_vis, confidence=confidence)
+        vis_lo, vis_hi = vis_lo[0], vis_hi[0]
+        confidence_pct = confidence * 100
+
+        rev_range = rev_hi - rev_lo
+        rev_progress = 50 if rev_range == 0 else int(np.clip((rev_pred - rev_lo) / rev_range, 0, 1) * 100)
+        vis_range = vis_hi - vis_lo
+        vis_progress = 50 if vis_range == 0 else int(np.clip((vis_pred - vis_lo) / vis_range, 0, 1) * 100)
 
         # ── Display ──────────────────────────────────────────────────────────
         st.divider()
@@ -1350,17 +1387,19 @@ def page_predict() -> None:
         <div class="metric-card" style="text-align:center">
           <div class="metric-label">Predicted Revenue</div>
           <div class="metric-value">${rev_pred:,.0f}</div>
-          <div class="metric-delta">90% CI: ${rev_lo[0]:,.0f} - ${rev_hi[0]:,.0f}</div>
+          <div class="metric-delta">{confidence_pct:.0f}% confidence interval: ${rev_lo:,.0f} - ${rev_hi:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
+        r2.progress(rev_progress)
 
         r3.markdown(f"""
         <div class="metric-card" style="text-align:center">
           <div class="metric-label">Predicted Visitors</div>
           <div class="metric-value">{int(vis_pred):,}</div>
-          <div class="metric-delta">90% CI: {int(vis_lo[0]):,} - {int(vis_hi[0]):,}</div>
+          <div class="metric-delta">{confidence_pct:.0f}% confidence interval: {int(vis_lo):,} - {int(vis_hi):,}</div>
         </div>
         """, unsafe_allow_html=True)
+        r3.progress(vis_progress)
         # ── SHAP: Why this prediction? ───────────────────────────────────────
         st.divider()
 
@@ -1657,7 +1696,14 @@ def page_chat() -> None:
         if cols[i % 3].button(q, key=f"qp_{i}", use_container_width=True):
             st.session_state.chat_history.append({"role": "user", "content": q})
             with st.spinner("Agent thinking…"):
-                result = mas.chat(q, agent_role=agent_role)
+                try:
+                    result = mas.chat(q, agent_role=agent_role)
+                except Exception as e:
+                    result = {
+                        "agent": "Agent",
+                        "response": f"Agent failed to respond. Please try again. Error: {str(e)}",
+                        "source": "mock",
+                    }
             st.session_state.chat_history.append({
                 "role"   : "assistant",
                 "agent"  : result["agent"],
@@ -1731,7 +1777,14 @@ def page_chat() -> None:
             "role": "user", "content": user_input.strip()
         })
         with st.spinner("Agent thinking…"):
-            result = mas.chat(user_input.strip(), agent_role=agent_role)
+            try:
+                result = mas.chat(user_input.strip(), agent_role=agent_role)
+            except Exception as e:
+                result = {
+                    "agent": "Agent",
+                    "response": f"Agent failed to respond. Please try again. Error: {str(e)}",
+                    "source": "mock",
+                }
 
         st.session_state.chat_history.append({
             "role"   : "assistant",
@@ -1813,7 +1866,12 @@ def page_recommendations() -> None:
                 )
                 if st.button(f"Generate AI Plan for {row['Location']}", key=f"rec_btn_{row['Location']}"):
                     with st.spinner(f"Generating recommendations for {row['Location']}…"):
-                        result = mas.chat(query, agent_role="recommendation")
+                        try:
+                            result = mas.chat(query, agent_role="recommendation")
+                        except Exception as e:
+                            result = {
+                                "response": f"Agent failed to respond. Please try again. Error: {str(e)}"
+                            }
                     st.markdown(result["response"])
 
 

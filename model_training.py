@@ -85,7 +85,7 @@ RANDOM_STATE = 42
 MODEL_DIR    = Path("models")
 MODEL_DIR.mkdir(exist_ok=True)
 
-N_OPTUNA_TRIALS = int(os.getenv("OPTUNA_TRIALS", "3"))  # Bayesian HP search budget
+N_OPTUNA_TRIALS = int(os.getenv("OPTUNA_TRIALS", "20"))  # Bayesian HP search budget
 N_CV_FOLDS      = 3           # Stratified K-Fold count
 N_JOBS          = int(os.getenv("MODEL_N_JOBS", "-1"))
 
@@ -165,12 +165,17 @@ def _tune_classifier_hp(X_train, y_train) -> Dict:
             final_estimator=LogisticRegression(max_iter=1000, random_state=RANDOM_STATE),
             cv=3, n_jobs=N_JOBS,
         )
-        skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=RANDOM_STATE)
+        skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_STATE)
         scores = cross_val_score(stack, X_train, y_train, cv=skf, scoring="recall", n_jobs=N_JOBS)
         return scores.mean()
 
-    study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=RANDOM_STATE))
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=optuna.samplers.TPESampler(seed=RANDOM_STATE),
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=1),
+    )
     study.optimize(objective, n_trials=N_OPTUNA_TRIALS, show_progress_bar=False)
+    print(f"[Optuna] Best recall: {study.best_value:.4f} after {len(study.trials)} trials")
 
     best_trial = study.best_trial
     # Extract per-model params from best trial
@@ -551,19 +556,6 @@ class RevenueRegressor:
             random_state=RANDOM_STATE,
         )))
 
-        # v2: StackingRegressor with Ridge meta-learner
-        self.model = StackingRegressor(
-            estimators      = estimators,
-            final_estimator = Ridge(alpha=1.0),
-            cv              = 5,
-            n_jobs          = N_JOBS,
-            passthrough     = False,
-        )
-        self.model.fit(X_train, y_tr_log)
-
-        y_pred_log = self.model.predict(X_test)
-        y_pred     = np.expm1(y_pred_log)
-
         # v2: cross-validation on log-target
         from sklearn.model_selection import cross_val_score
         cv_r2 = cross_val_score(
@@ -578,6 +570,19 @@ class RevenueRegressor:
             "r2_mean": round(cv_r2.mean() * 100, 2),
             "r2_std": round(cv_r2.std() * 100, 2),
         }
+
+        # v2: StackingRegressor with Ridge meta-learner
+        self.model = StackingRegressor(
+            estimators      = estimators,
+            final_estimator = Ridge(alpha=1.0),
+            cv              = 5,
+            n_jobs          = N_JOBS,
+            passthrough     = False,
+        )
+        self.model.fit(X_train, y_tr_log)
+
+        y_pred_log = self.model.predict(X_test)
+        y_pred     = np.expm1(y_pred_log)
 
         self.metrics_ = {
             "r2"  : round(r2_score(y_test, y_pred)                * 100, 2),
@@ -655,17 +660,6 @@ class VisitorsRegressor:
             random_state=RANDOM_STATE,
         )))
 
-        # v2: StackingRegressor
-        self.model = StackingRegressor(
-            estimators      = estimators,
-            final_estimator = Ridge(alpha=1.0),
-            cv              = 5,
-            n_jobs          = N_JOBS,
-            passthrough     = False,
-        )
-        self.model.fit(X_train, y_tr_log)
-        y_pred = np.expm1(self.model.predict(X_test))
-
         # v2: cross-validation
         from sklearn.model_selection import cross_val_score
         cv_r2 = cross_val_score(
@@ -680,6 +674,17 @@ class VisitorsRegressor:
             "r2_mean": round(cv_r2.mean() * 100, 2),
             "r2_std": round(cv_r2.std() * 100, 2),
         }
+
+        # v2: StackingRegressor
+        self.model = StackingRegressor(
+            estimators      = estimators,
+            final_estimator = Ridge(alpha=1.0),
+            cv              = 5,
+            n_jobs          = N_JOBS,
+            passthrough     = False,
+        )
+        self.model.fit(X_train, y_tr_log)
+        y_pred = np.expm1(self.model.predict(X_test))
 
         self.metrics_ = {
             "r2"  : round(r2_score(y_test, y_pred)                  * 100, 2),
