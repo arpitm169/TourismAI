@@ -411,6 +411,46 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 }
 [data-testid="stAlert"] * { color: inherit !important; }
 
+[data-testid="stStatusWidget"],
+.stStatus {
+    background: #ffffff !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 2px 12px rgba(76,175,130,.08) !important;
+    overflow: hidden !important;
+}
+[data-testid="stStatusWidget"] details,
+[data-testid="stStatusWidget"] summary,
+[data-testid="stStatusWidget"] div,
+.stStatus details,
+.stStatus summary,
+.stStatus div {
+    background-color: #ffffff !important;
+}
+[data-testid="stStatusWidget"] *,
+[data-testid="stStatusWidget"] p,
+[data-testid="stStatusWidget"] span,
+.stStatus *,
+.stStatus p,
+.stStatus span {
+    color: var(--text-primary) !important;
+}
+[data-testid="stStatusWidget"] svg,
+.stStatus svg {
+    color: var(--accent-primary) !important;
+    stroke: var(--accent-primary) !important;
+}
+
+[data-testid="stProgress"] > div {
+    background: #ffffff !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 999px !important;
+    overflow: hidden !important;
+}
+[data-testid="stProgress"] div[role="progressbar"] {
+    background-color: var(--accent-primary) !important;
+}
+
 .stSlider [data-baseweb="slider"] > div { color: var(--accent-primary) !important; }
 .stSlider [role="slider"] {
     background: var(--accent-primary) !important;
@@ -554,7 +594,7 @@ def render_sidebar() -> str:
             del os.environ["GOOGLE_API_KEY"]
 
         model = st.selectbox("Model", [
-            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             "gemini-1.5-flash-002",
             "gemini-1.5-flash-001",
             "gemini-1.5-flash-8b",
@@ -645,10 +685,10 @@ def _build_rag(df: pd.DataFrame) -> None:
                 f"search as fallback. {str(e)}"
             )
     # Build agents (mock mode until API key set)
-    _build_agents(model="gemini-2.0-flash")
+    _build_agents(model="gemini-2.5-flash")
 
 
-def _build_agents(api_key: str = "", model: str = "gemini-2.0-flash") -> None:
+def _build_agents(api_key: str = "", model: str = "gemini-2.5-flash") -> None:
     rag = st.session_state.rag
     if rag is None:
         return
@@ -680,10 +720,27 @@ def _train_models() -> None:
             st.session_state.shap_X_train      = joblib.load("models/shap_X_train.joblib")
         except FileNotFoundError:
             pass
-    bar  = st.progress(0, "Training classifer…")
+    status_box = st.status("Starting training…", expanded=True)
+    progress_bar = st.progress(0)
+
+    def training_progress(pct: float, message: str) -> None:
+        progress_bar.progress(pct)
+        status_box.update(label=message, state="running", expanded=True)
+
     try:
-        metrics, clf, rev_reg, vis_reg = train_all_models(df, prep)
-        bar.progress(100, "Training complete!")
+        training_progress(0, "Starting training…")
+        metrics, clf, rev_reg, vis_reg = train_all_models(
+            df,
+            prep,
+            progress_callback=training_progress,
+        )
+        status_box.update(
+            label="All models trained successfully!",
+            state="complete",
+            expanded=False,
+        )
+        progress_bar.empty()
+        st.success("Training complete! Models are ready.")
         st.session_state.metrics       = metrics
         st.session_state.clf           = clf
         st.session_state.rev_reg       = rev_reg
@@ -755,7 +812,12 @@ def _train_models() -> None:
             )
         st.toast("🎉 All models trained!", icon="🚀")
     except Exception as e:
-        bar.empty()
+        progress_bar.empty()
+        status_box.update(
+            label=f"Training failed: {str(e)}",
+            state="error",
+            expanded=True,
+        )
         st.error(
             f"Model training failed: {str(e)}. Try reducing the dataset size "
             "or check your dependencies."
@@ -1697,7 +1759,11 @@ def page_chat() -> None:
             st.session_state.chat_history.append({"role": "user", "content": q})
             with st.spinner("Agent thinking…"):
                 try:
-                    result = mas.chat(q, agent_role=agent_role)
+                    result = mas.chat(
+                        q,
+                        agent_role=agent_role,
+                        chat_history=st.session_state.chat_history[-6:],
+                    )
                 except Exception as e:
                     result = {
                         "agent": "Agent",
@@ -1778,7 +1844,11 @@ def page_chat() -> None:
         })
         with st.spinner("Agent thinking…"):
             try:
-                result = mas.chat(user_input.strip(), agent_role=agent_role)
+                result = mas.chat(
+                    user_input.strip(),
+                    agent_role=agent_role,
+                    chat_history=st.session_state.chat_history[-6:],
+                )
             except Exception as e:
                 result = {
                     "agent": "Agent",

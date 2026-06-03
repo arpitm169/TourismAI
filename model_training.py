@@ -26,7 +26,7 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import joblib
 import numpy as np
@@ -479,12 +479,28 @@ class HighRevenuePotentialClassifier:
         return self.model.predict_proba(X)[:, 1]
 
     def save(self, path: str = "models/classifier.joblib") -> None:
-        joblib.dump(self, path)
+        state = {
+            "model": self.model,
+            "metrics_": self.metrics_,
+            "feature_importances_": self.feature_importances_,
+            "_cv_scores": self._cv_scores,
+            "_model_comparison": self._model_comparison,
+        }
+        joblib.dump(state, path)
         print(f"[Saved] Classifier -> {path}")
 
     @classmethod
     def load(cls, path: str = "models/classifier.joblib") -> "HighRevenuePotentialClassifier":
-        return joblib.load(path)
+        state = joblib.load(path)
+        if isinstance(state, dict):
+            obj = cls()
+            obj.model = state.get("model")
+            obj.metrics_ = state.get("metrics_", {})
+            obj.feature_importances_ = state.get("feature_importances_")
+            obj._cv_scores = state.get("_cv_scores", {})
+            obj._model_comparison = state.get("_model_comparison", {})
+            return obj
+        return state
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -612,11 +628,23 @@ class RevenueRegressor:
         return np.maximum(lower, 0), np.maximum(upper, 0)
 
     def save(self, path="models/revenue_regressor.joblib"):
-        joblib.dump(self, path)
+        state = {
+            "model": self.model,
+            "metrics_": self.metrics_,
+            "_cv_scores": self._cv_scores,
+        }
+        joblib.dump(state, path)
 
     @classmethod
     def load(cls, path="models/revenue_regressor.joblib"):
-        return joblib.load(path)
+        state = joblib.load(path)
+        if isinstance(state, dict):
+            obj = cls()
+            obj.model = state.get("model")
+            obj.metrics_ = state.get("metrics_", {})
+            obj._cv_scores = state.get("_cv_scores", {})
+            return obj
+        return state
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -714,11 +742,23 @@ class VisitorsRegressor:
         return np.maximum(lower, 0), np.maximum(upper, 0)
 
     def save(self, path="models/visitors_regressor.joblib"):
-        joblib.dump(self, path)
+        state = {
+            "model": self.model,
+            "metrics_": self.metrics_,
+            "_cv_scores": self._cv_scores,
+        }
+        joblib.dump(state, path)
 
     @classmethod
     def load(cls, path="models/visitors_regressor.joblib"):
-        return joblib.load(path)
+        state = joblib.load(path)
+        if isinstance(state, dict):
+            obj = cls()
+            obj.model = state.get("model")
+            obj.metrics_ = state.get("metrics_", {})
+            obj._cv_scores = state.get("_cv_scores", {})
+            return obj
+        return state
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -728,6 +768,7 @@ class VisitorsRegressor:
 def train_all_models(
     df: pd.DataFrame,
     preprocessor,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> Tuple[Dict, HighRevenuePotentialClassifier, RevenueRegressor, VisitorsRegressor]:
     """
     Train all three models and return (metrics_dict, clf, rev_reg, vis_reg).
@@ -736,6 +777,8 @@ def train_all_models(
     results: Dict = {}
 
     # ── Classification ───────────────────────────────────────────────────────
+    if progress_callback:
+        progress_callback(0.15, "Step 1/3: Tuning classifier hyperparameters (this takes ~40s)…")
     print("\n" + "="*60)
     print("  PHASE 1/3: Classification (Stacking + Optuna)")
     print("="*60)
@@ -748,6 +791,8 @@ def train_all_models(
     clf.save()
 
     # ── Revenue Regression ───────────────────────────────────────────────────
+    if progress_callback:
+        progress_callback(0.50, "Step 2/3: Training revenue regression model…")
     print("\n" + "="*60)
     print("  PHASE 2/3: Revenue Regression (Stacking)")
     print("="*60)
@@ -763,6 +808,8 @@ def train_all_models(
     rev_reg.save()
 
     # ── Visitors Regression ──────────────────────────────────────────────────
+    if progress_callback:
+        progress_callback(0.75, "Step 3/3: Training visitor regression model…")
     print("\n" + "="*60)
     print("  PHASE 3/3: Visitors Regression (Stacking)")
     print("="*60)
@@ -773,6 +820,9 @@ def train_all_models(
     vis_reg = VisitorsRegressor()
     results["visitors_regression"] = vis_reg.train(X_tr_v, y_tr_v, X_te_v, y_te_v)
     vis_reg.save()
+
+    if progress_callback:
+        progress_callback(1.0, "All models trained successfully!")
 
     return results, clf, rev_reg, vis_reg
 
@@ -795,3 +845,35 @@ if __name__ == "__main__":
     print(f"Revenue Regression R2   : {metrics['revenue_regression']['r2']}%")
     print(f"Visitors Regression R2  : {metrics['visitors_regression']['r2']}%")
     print(f"\nModel comparison: {list(metrics['classification'].get('model_comparison', {}).keys())}")
+
+    print("\n=== Verifying Model Loading ===")
+    try:
+        clf_loaded = HighRevenuePotentialClassifier.load()
+        print("[OK] Classifier loaded successfully. Internal model type:", type(clf_loaded.model))
+        
+        rev_loaded = RevenueRegressor.load()
+        print("[OK] Revenue Regressor loaded successfully. Internal model type:", type(rev_loaded.model))
+        
+        vis_loaded = VisitorsRegressor.load()
+        print("[OK] Visitors Regressor loaded successfully. Internal model type:", type(vis_loaded.model))
+        
+        # Test predictions with loaded models
+        clf_feats = prep.get_classification_features()
+        X_tr, _, _, _ = prep.split(df, features=clf_feats, target="High_Revenue_Potential")
+        pred_clf = clf_loaded.predict(X_tr.head(5))
+        print("[OK] Loaded Classifier sample prediction:", pred_clf)
+        
+        rev_feats = prep.get_revenue_regression_features()
+        X_tr_r, _, _, _ = prep.split(df, features=rev_feats, target="Revenue")
+        pred_rev = rev_loaded.predict(X_tr_r.head(5))
+        print("[OK] Loaded Revenue Regressor sample prediction:", pred_rev)
+        
+        vis_feats = prep.get_visitors_regression_features()
+        X_tr_v, _, _, _ = prep.split(df, features=vis_feats, target="Visitors")
+        pred_vis = vis_loaded.predict(X_tr_v.head(5))
+        print("[OK] Loaded Visitors Regressor sample prediction:", pred_vis)
+        
+        print("\nAll model load/save verifications passed!")
+    except Exception as ex:
+        print("[ERROR] Model loading or prediction failed:", ex)
+        raise ex

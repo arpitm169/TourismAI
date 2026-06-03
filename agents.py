@@ -69,7 +69,7 @@ except ImportError:
     LG_AVAILABLE = False
 
 
-DEFAULT_MODEL = "gemini-1.5-flash-latest"
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 @retry(
@@ -232,10 +232,21 @@ class TourismAgent:
         user_message: str,
         df_summary: str = "",
         model_metrics: str = "",
+        chat_history: Optional[List[Dict[str, str]]] = None,
     ) -> str:
         """Retrieve context → build prompt → call LLM (or mock fallback)."""
+        history_text = ""
+        if chat_history:
+            last_6 = chat_history[-6:]
+            lines = []
+            for msg in last_6:
+                role = "User" if msg.get("role") == "user" else "Assistant"
+                lines.append(f"{role}: {msg.get('content', '')}")
+            history_text = "\nRecent conversation:\n" + "\n".join(lines) + "\n"
+
         context = self.rag_pipeline.get_context_for_prompt(
-            user_message, n_results=4
+            f"{history_text}\n{user_message}" if history_text else user_message,
+            n_results=4,
         )
 
         if not LC_AVAILABLE or self.llm is None:
@@ -246,6 +257,7 @@ class TourismAgent:
         prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content=system),
             HumanMessage(content=(
+                f"{history_text}"
                 "=== RETRIEVED CONTEXT ===\n"
                 f"{context}\n\n"
                 "=== DATASET SUMMARY ===\n"
@@ -537,6 +549,7 @@ class TourismMultiAgentSystem:
         self,
         query: str,
         agent_role: Optional[str] = None,
+        chat_history: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, str]:
         """Route *query* to the best agent and return a structured response.
 
@@ -566,6 +579,7 @@ class TourismMultiAgentSystem:
             query,
             df_summary    = self.df_summary,
             model_metrics = self.model_metrics,
+            chat_history  = chat_history,
         )
 
         return {
