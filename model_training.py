@@ -45,7 +45,7 @@ from sklearn.metrics import (
     f1_score, mean_absolute_error, mean_squared_error,
     precision_score, r2_score, recall_score, roc_auc_score,
 )
-from sklearn.model_selection import StratifiedKFold, cross_val_score, cross_validate
+from sklearn.model_selection import StratifiedKFold, cross_val_score, cross_validate, train_test_split
 from sklearn.pipeline import Pipeline
 
 warnings.filterwarnings("ignore")
@@ -148,6 +148,7 @@ def _tune_classifier_hp(X_train, y_train) -> Dict:
         if XGB_AVAILABLE:
             estimators.append(("xgb", xgb.XGBClassifier(
                 **xgb_p, eval_metric="logloss", use_label_encoder=False,
+                class_weight="balanced",
                 random_state=RANDOM_STATE, n_jobs=N_JOBS,
             )))
         if LGB_AVAILABLE:
@@ -162,11 +163,15 @@ def _tune_classifier_hp(X_train, y_train) -> Dict:
 
         stack = StackingClassifier(
             estimators=estimators,
-            final_estimator=LogisticRegression(max_iter=1000, random_state=RANDOM_STATE),
+            final_estimator=LogisticRegression(
+                max_iter=1000,
+                class_weight="balanced",
+                random_state=RANDOM_STATE,
+            ),
             cv=3, n_jobs=N_JOBS,
         )
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_STATE)
-        scores = cross_val_score(stack, X_train, y_train, cv=skf, scoring="recall", n_jobs=N_JOBS)
+        scores = cross_val_score(stack, X_train, y_train, cv=skf, scoring="f1", n_jobs=N_JOBS)
         return scores.mean()
 
     study = optuna.create_study(
@@ -175,7 +180,7 @@ def _tune_classifier_hp(X_train, y_train) -> Dict:
         pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=1),
     )
     study.optimize(objective, n_trials=N_OPTUNA_TRIALS, show_progress_bar=False)
-    print(f"[Optuna] Best recall: {study.best_value:.4f} after {len(study.trials)} trials")
+    print(f"[Optuna] Best f1: {study.best_value:.4f} after {len(study.trials)} trials")
 
     best_trial = study.best_trial
     # Extract per-model params from best trial
@@ -204,7 +209,7 @@ def _tune_classifier_hp(X_train, y_train) -> Dict:
             "reg_lambda"       : best_trial.params.get("lgb_lambda", 1.5),
         }
 
-    print(f"[Optuna] Best recall (3-fold CV): {study.best_value:.4f} "
+    print(f"[Optuna] Best f1 (3-fold CV): {study.best_value:.4f} "
           f"after {len(study.trials)} trials")
     return best_params
 
@@ -232,6 +237,7 @@ class HighRevenuePotentialClassifier:
         self.feature_importances_: Optional[pd.Series] = None
         self._cv_scores: Dict[str, List[float]] = {}
         self._model_comparison: Dict[str, Dict] = {}
+        self.decision_threshold_: float = 0.5
 
     # ── Build base estimators ────────────────────────────────────────────────
 
@@ -246,7 +252,8 @@ class HighRevenuePotentialClassifier:
             params = {**params, "early_stopping_rounds": 30}
         return xgb.XGBClassifier(
             **params,
-            scale_pos_weight  = 1,          # SMOTE handles imbalance
+            class_weight      = "balanced",
+            scale_pos_weight  = 1,
             eval_metric       = "logloss",
             use_label_encoder = False,
             random_state      = RANDOM_STATE,
@@ -291,7 +298,9 @@ class HighRevenuePotentialClassifier:
         return StackingClassifier(
             estimators      = estimators,
             final_estimator = LogisticRegression(
-                max_iter=1000, C=1.0, random_state=RANDOM_STATE,
+                max_iter=1000,
+                class_weight="balanced",
+                random_state=RANDOM_STATE,
             ),
             cv              = 5,
             stack_method    = "predict_proba",
@@ -346,8 +355,8 @@ class HighRevenuePotentialClassifier:
                 else:
                     model.fit(X_train, y_train)
 
-                y_pred = model.predict(X_test)
                 y_proba = model.predict_proba(X_test)[:, 1]
+                y_pred = (y_proba >= 0.4).astype(int)
                 comparison[name] = {
                     "accuracy"  : round(accuracy_score(y_test, y_pred)  * 100, 2),
                     "recall"    : round(recall_score(y_test, y_pred)     * 100, 2),
@@ -360,6 +369,32 @@ class HighRevenuePotentialClassifier:
                 comparison[name] = {"accuracy": 0, "recall": 0, "precision": 0, "f1": 0, "roc_auc": 0}
 
         return comparison
+
+    def _best_probability_threshold(
+        self,
+        y_true: pd.Series,
+        y_proba: np.ndarray,
+    ) -> float:
+        """Pick the held-out probability threshold with the strongest F1 score."""
+        best_threshold = 0.5
+        best_score = -1.0
+        for threshold in np.linspace(0.05, 0.95, 181):
+            y_pred = (y_proba >= threshold).astype(int)
+            score = f1_score(y_true, y_pred, zero_division=0)
+            if score > best_score:
+                best_score = score
+                best_threshold = float(threshold)
+        return best_threshold
+
+    def _predict_with_threshold(
+        self,
+        X: pd.DataFrame,
+        y_proba: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Apply the fitted probability cutoff."""
+        if y_proba is None:
+            y_proba = self.model.predict_proba(X)[:, 1]
+        return (y_proba >= self.decision_threshold_).astype(int)
 
     # ── Training ─────────────────────────────────────────────────────────────
 
@@ -374,43 +409,58 @@ class HighRevenuePotentialClassifier:
         Train with SMOTE → Optuna tuning → Stacking ensemble → Calibration.
         Returns evaluation metrics dict.
         """
+        X_fit, X_val, y_fit, y_val = train_test_split(
+            X_train,
+            y_train,
+            test_size=0.2,
+            random_state=RANDOM_STATE,
+            stratify=y_train,
+        )
+
         # --- handle class imbalance ---
+        from collections import Counter
         if IMBLEARN_AVAILABLE:
-            smote = SMOTETomek(random_state=RANDOM_STATE)
-            X_res, y_res = smote.fit_resample(X_train, y_train)
-            print(f"[SMOTE] {len(y_train)} -> {len(y_res)} samples "
-                  f"(class balance: {np.bincount(y_res)})")
+            raw_train_size = len(y_fit)
+            print(f"[SMOTE] Class distribution before: {Counter(y_fit)}")
+            smt = SMOTETomek(random_state=RANDOM_STATE)
+            X_fit, y_fit = smt.fit_resample(X_fit, y_fit)
+            print(f"[SMOTE] Class distribution after:  {Counter(y_fit)}")
+            print(f"[SMOTE] {raw_train_size} -> {len(y_fit)} samples "
+                  f"(class balance: {np.bincount(y_fit)})")
         else:
-            X_res, y_res = X_train.values, y_train.values
             print("[INFO] SMOTE unavailable; using raw data with balanced class_weight.")
 
         # --- Optuna hyperparameter tuning ---
-        tuned_hp = _tune_classifier_hp(X_res, y_res)
+        tuned_hp = _tune_classifier_hp(X_fit, y_fit)
         xgb_hp = tuned_hp.get("xgb")
         lgb_hp = tuned_hp.get("lgb")
 
         # --- build stacking ensemble ---
         stacker = self._build_stacking(xgb_hp=xgb_hp, lgb_hp=lgb_hp)
-        stacker.fit(X_res, y_res)
+        stacker.fit(X_fit, y_fit)
 
         # --- calibrate probabilities ---
         try:
             self.model = CalibratedClassifierCV(
                 stacker, cv=3, method="isotonic",
             )
-            self.model.fit(X_res, y_res)
+            self.model.fit(X_fit, y_fit)
         except Exception:
             # Fallback to uncalibrated if calibration fails
             self.model = stacker
             print("[INFO] Calibration failed; using uncalibrated stacker.")
 
+        # --- tune threshold on validation data only ---
+        val_proba = self.model.predict_proba(X_val)[:, 1]
+        self.decision_threshold_ = self._best_probability_threshold(y_val, val_proba)
+
         # --- predict on held-out test set ---
-        y_pred  = self.model.predict(X_test)
         y_proba = self.model.predict_proba(X_test)[:, 1]
+        y_pred = self._predict_with_threshold(X_test, y_proba)
 
         # --- cross-validation scores ---
         print(f"[CV] Running {N_CV_FOLDS}-fold stratified cross-validation...")
-        self._cv_scores = self._run_cv(X_res, y_res)
+        self._cv_scores = self._run_cv(X_fit, y_fit)
         cv_summary = {
             f"cv_{k}_mean": round(np.mean(v), 2)
             for k, v in self._cv_scores.items()
@@ -424,7 +474,7 @@ class HighRevenuePotentialClassifier:
         run_comparison = os.getenv("RUN_MODEL_COMPARISON", "0") == "1"
         if run_comparison:
             print("[Compare] Evaluating individual base models...")
-            self._model_comparison = self._compare_models(X_test, y_test, X_res, y_res)
+            self._model_comparison = self._compare_models(X_test, y_test, X_fit, y_fit)
         else:
             print("[Compare] Skipping individual model comparison (set RUN_MODEL_COMPARISON=1 to enable)")
             self._model_comparison = {}
@@ -432,17 +482,20 @@ class HighRevenuePotentialClassifier:
         # --- metrics ---
         self.metrics_ = {
             "accuracy"  : round(accuracy_score(y_test, y_pred)  * 100, 2),
-            "recall"    : round(recall_score(y_test, y_pred)     * 100, 2),
-            "precision" : round(precision_score(y_test, y_pred)  * 100, 2),
-            "f1"        : round(f1_score(y_test, y_pred)         * 100, 2),
+            "recall"    : round(recall_score(y_test, y_pred, zero_division=0)     * 100, 2),
+            "precision" : round(precision_score(y_test, y_pred, zero_division=0)  * 100, 2),
+            "f1"        : round(f1_score(y_test, y_pred, zero_division=0)         * 100, 2),
             "roc_auc"   : round(roc_auc_score(y_test, y_proba)   * 100, 2),
             "conf_matrix"        : confusion_matrix(y_test, y_pred).tolist(),
-            "classification_rep" : classification_report(y_test, y_pred, output_dict=True),
+            "classification_rep" : classification_report(
+                y_test, y_pred, output_dict=True, zero_division=0
+            ),
             # v2 additions
             "cv_scores"          : self._cv_scores,
             "cv_summary"         : cv_summary,
             "model_comparison"   : self._model_comparison,
             "optuna_tuned"       : bool(tuned_hp),
+            "decision_threshold" : round(self.decision_threshold_, 4),
         }
 
         # --- feature importances (from stacking base estimators) ---
@@ -453,7 +506,7 @@ class HighRevenuePotentialClassifier:
                     if hasattr(est, "feature_importances_"):
                         fi = pd.Series(
                             est.feature_importances_,
-                            index=X_train.columns,
+                            index=X_fit.columns,
                         ).sort_values(ascending=False)
                         self.feature_importances_ = fi
                         break
@@ -466,6 +519,7 @@ class HighRevenuePotentialClassifier:
         print(f"  Precision : {self.metrics_['precision']}%")
         print(f"  F1 Score  : {self.metrics_['f1']}%")
         print(f"  ROC-AUC   : {self.metrics_['roc_auc']}%")
+        print(f"  Decision threshold: {self.decision_threshold_:.3f}")
         print(f"  CV Accuracy: {cv_summary.get('cv_accuracy_mean', '?')}% "
               f"+/- {cv_summary.get('cv_accuracy_std', '?')}%")
         print(f"  Optuna tuned: {bool(tuned_hp)}")
@@ -473,7 +527,7 @@ class HighRevenuePotentialClassifier:
         return self.metrics_
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        return self.model.predict(X)
+        return self._predict_with_threshold(X)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         return self.model.predict_proba(X)[:, 1]
@@ -485,6 +539,7 @@ class HighRevenuePotentialClassifier:
             "feature_importances_": self.feature_importances_,
             "_cv_scores": self._cv_scores,
             "_model_comparison": self._model_comparison,
+            "decision_threshold_": self.decision_threshold_,
         }
         joblib.dump(state, path)
         print(f"[Saved] Classifier -> {path}")
@@ -499,6 +554,7 @@ class HighRevenuePotentialClassifier:
             obj.feature_importances_ = state.get("feature_importances_")
             obj._cv_scores = state.get("_cv_scores", {})
             obj._model_comparison = state.get("_model_comparison", {})
+            obj.decision_threshold_ = state.get("decision_threshold_", 0.5)
             return obj
         return state
 
