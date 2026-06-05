@@ -152,8 +152,14 @@ html, body, [class*="css"] {
 .rec-card p  { color: #2e7d52; font-size: .85rem; margin: 0; }
 
 /* ── Hide Streamlit branding ─────────────────────────────────────── */
-#MainMenu, footer { visibility: hidden; }
-header { background: transparent; }
+ #MainMenu { visibility: hidden; }
+ footer { visibility: hidden; }
+ header { background: transparent; }
+ 
+ /* ── Ensure sidebar toggle is visible ─────────────────────────────── */
+ [data-testid="stSidebarCollapsedControl"] {
+     display: block !important;
+ }
 </style>
 """
 
@@ -187,6 +193,13 @@ html, body, [class*="css"], .stApp {
 }
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
     background: var(--bg-main) !important;
+}
+[data-testid="stHeader"] {
+    background: transparent !important;
+}
+[data-testid="stSidebarCollapsedControl"] {
+    display: block !important;
+    padding: 0.5rem !important;
 }
 .block-container { padding: 1.5rem 2rem 2.5rem; }
 #MainMenu, footer { visibility: hidden; }
@@ -2010,14 +2023,14 @@ def main() -> None:
         "🎯 Recommendations"    : page_recommendations,
     }
 
-    c1, c2 = st.columns([6, 1])
+    c1, c2 = st.columns([5, 2])
     with c2:
         if st.button("🔄 Reset UI", help="Refresh page to reset sidebar state"):
             st.cache_data.clear()
             st.rerun()
     
     st.markdown(
-        "<small style='color:var(--text-secondary)'>💡 Tip: Click the ☰ menu in top-left to reopen the sidebar, or use the Reset UI button above</small>",
+        "<small style='color:var(--text-secondary)'>💡 Sidebar toggle (☰) is in the top-left corner. If hidden, try refreshing or resizing the window.</small>",
         unsafe_allow_html=True
     )
 
