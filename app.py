@@ -12,6 +12,7 @@ Run:
 
 from __future__ import annotations
 
+import html
 import os
 import time
 import warnings
@@ -69,6 +70,7 @@ LIVE_CHART_COLORS = [
 ]
 LIVE_SEQUENTIAL_TEAL = ["#e0f2fe", "#0891b2", "#164e63"]
 LIVE_SEQUENTIAL_INDIGO = ["#ede9fe", "#6366f1", "#312e81"]
+CLASSIFICATION_TARGET_VERSION = "potential_score_v2"
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -412,8 +414,21 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stAlert"] * { color: inherit !important; }
 
 [data-testid="stStatusWidget"],
-.stStatus {
+[data-testid="stStatusWidget"] details,
+[data-testid="stStatusWidget"] summary,
+[data-testid="stStatusWidget"] [data-baseweb],
+[data-testid="stStatusWidget"] [class*="st-"],
+.stStatus,
+.stStatus details,
+.stStatus summary,
+.stStatus [data-baseweb],
+.stStatus [class*="st-"] {
     background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+}
+[data-testid="stStatusWidget"],
+.stStatus {
     border: 1px solid var(--border-color) !important;
     border-radius: 16px !important;
     box-shadow: 0 2px 12px rgba(76,175,130,.08) !important;
@@ -424,8 +439,13 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stStatusWidget"] div,
 .stStatus details,
 .stStatus summary,
-.stStatus div {
+.stStatus div,
+[data-testid="stStatusWidget"] div::before,
+[data-testid="stStatusWidget"] div::after,
+.stStatus div::before,
+.stStatus div::after {
     background-color: #ffffff !important;
+    background-image: none !important;
 }
 [data-testid="stStatusWidget"] *,
 [data-testid="stStatusWidget"] p,
@@ -441,14 +461,36 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     stroke: var(--accent-primary) !important;
 }
 
-[data-testid="stProgress"] > div {
+[data-testid="stProgress"],
+[data-testid="stProgress"] > div,
+[data-testid="stProgress"] [data-baseweb="progress-bar"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+[data-testid="stProgress"] [data-baseweb="progress-bar"] > div,
+[data-testid="stProgress"] [data-baseweb="progress-bar"] > div > div {
     background: #ffffff !important;
+    background-color: #ffffff !important;
     border: 1px solid var(--border-color) !important;
     border-radius: 999px !important;
     overflow: hidden !important;
 }
-[data-testid="stProgress"] div[role="progressbar"] {
+[data-testid="stProgress"] div[role="progressbar"] > div > div > div {
     background-color: var(--accent-primary) !important;
+    background-image: none !important;
+    border: 0 !important;
+}
+
+.training-status-panel {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(76,175,130,.08);
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.45;
+    margin: .75rem 0 1rem;
+    padding: 1rem 1.15rem;
 }
 
 .stSlider [data-baseweb="slider"] > div { color: var(--accent-primary) !important; }
@@ -506,6 +548,12 @@ def _init_session() -> None:
             st.session_state[k] = v
 
 _init_session()
+
+if st.session_state.get("classification_target_version") != CLASSIFICATION_TARGET_VERSION:
+    st.session_state.metrics = None
+    st.session_state.clf = None
+    st.session_state.models_trained = False
+    st.session_state.classification_target_version = CLASSIFICATION_TARGET_VERSION
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -720,12 +768,18 @@ def _train_models() -> None:
             st.session_state.shap_X_train      = joblib.load("models/shap_X_train.joblib")
         except FileNotFoundError:
             pass
-    status_box = st.status("Starting training…", expanded=True)
+    status_box = st.empty()
     progress_bar = st.progress(0)
+
+    def render_training_status(message: str) -> None:
+        status_box.markdown(
+            f'<div class="training-status-panel">{html.escape(message)}</div>',
+            unsafe_allow_html=True,
+        )
 
     def training_progress(pct: float, message: str) -> None:
         progress_bar.progress(pct)
-        status_box.update(label=message, state="running", expanded=True)
+        render_training_status(message)
 
     try:
         training_progress(0, "Starting training…")
@@ -734,11 +788,7 @@ def _train_models() -> None:
             prep,
             progress_callback=training_progress,
         )
-        status_box.update(
-            label="All models trained successfully!",
-            state="complete",
-            expanded=False,
-        )
+        render_training_status("All models trained successfully!")
         progress_bar.empty()
         st.success("Training complete! Models are ready.")
         st.session_state.metrics       = metrics
@@ -746,6 +796,7 @@ def _train_models() -> None:
         st.session_state.rev_reg       = rev_reg
         st.session_state.vis_reg       = vis_reg
         st.session_state.models_trained = True
+        st.session_state.classification_target_version = CLASSIFICATION_TARGET_VERSION
         # ── SHAP explainer ───────────────────────────────────────────────────
         if SHAP_AVAILABLE:
             try:
@@ -813,11 +864,7 @@ def _train_models() -> None:
         st.toast("🎉 All models trained!", icon="🚀")
     except Exception as e:
         progress_bar.empty()
-        status_box.update(
-            label=f"Training failed: {str(e)}",
-            state="error",
-            expanded=True,
-        )
+        render_training_status(f"Training failed: {str(e)}")
         st.error(
             f"Model training failed: {str(e)}. Try reducing the dataset size "
             "or check your dependencies."
@@ -1159,7 +1206,7 @@ def page_models() -> None:
         st.warning("Models not yet trained. Click **🚀 Train All Models** in the sidebar.")
         return
 
-    metrics = st.session_state.metrics
+    metrics = st.session_state.metrics or {}
     clf     = st.session_state.clf
 
     # ── Performance Gauges ───────────────────────────────────────────────────

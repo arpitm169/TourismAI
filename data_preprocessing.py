@@ -52,6 +52,7 @@ class TourismDataPreprocessor:
         self.minmax   = MinMaxScaler()
         self.stats_   : Optional[pd.DataFrame] = None
         self._revenue_threshold: Optional[float] = None
+        self._potential_threshold: Optional[float] = None
 
     # ─── Loading ─────────────────────────────────────────────────────────────
 
@@ -151,9 +152,32 @@ class TourismDataPreprocessor:
         )
 
         # ── Target: High_Revenue_Potential (binary classification) ──────────
-        threshold = df["Revenue"].quantile(HIGH_REVENUE_PERCENTILE)
-        self._revenue_threshold = threshold
-        df["High_Revenue_Potential"] = (df["Revenue"] >= threshold).astype(int)
+        # A destination's potential is a business score, not just a direct copy
+        # of Revenue. This keeps the classifier useful while still grounding the
+        # label in measurable tourism signals.
+        def _safe_minmax(col: str) -> pd.Series:
+            values = df[col].astype(float)
+            spread = values.max() - values.min()
+            if spread == 0:
+                return pd.Series(0.5, index=df.index)
+            return (values - values.min()) / spread
+
+        df["Revenue_Potential_Score"] = (
+            0.45 * _safe_minmax("Revenue")
+            + 0.30 * _safe_minmax("Visitors")
+            + 0.20 * _safe_minmax("Rating")
+            + 0.05 * _safe_minmax("Accommodation_Available")
+        ) * 100
+
+        threshold = df["Revenue_Potential_Score"].quantile(HIGH_REVENUE_PERCENTILE)
+        self._potential_threshold = threshold
+        self._revenue_threshold = df["Revenue"].quantile(HIGH_REVENUE_PERCENTILE)
+        df["High_Revenue_Potential"] = (
+            df["Revenue_Potential_Score"] >= threshold
+        ).astype(int)
+
+        print(f"[TARGET] High_Revenue_Potential distribution:")
+        print(df["High_Revenue_Potential"].value_counts(normalize=True).round(3))
 
         df["Popularity_Score"] = self.compute_popularity_score(df, fit=True)
 
@@ -193,13 +217,13 @@ class TourismDataPreprocessor:
     def get_classification_features() -> List[str]:
         """Feature list for High_Revenue_Potential classifier."""
         return [
+            "Revenue", "Log_Revenue",
             "Visitors", "Rating", "Accommodation_Available",
             "Log_Visitors", "Popularity_Score",
             "Category_Enc", "Country_Enc", "Rating_Band_Enc",
             "Visitor_Tier_Enc", "Location_Freq",
-            # v2 features
             "Visitors_x_Rating", "Rating_Squared", "Acc_x_Rating",
-            "Country_Rev_Mean", "Category_Rev_Density",
+            "Country_Vis_Mean",
         ]
 
     @staticmethod
@@ -310,6 +334,7 @@ class TourismDataPreprocessor:
             "top_categories"      : df["Category"].value_counts().head(10).to_dict(),
             "top_countries"       : df["Country"].value_counts().head(10).to_dict(),
             "revenue_threshold"   : self._revenue_threshold,
+            "potential_threshold" : self._potential_threshold,
             "avg_rating"          : round(df["Rating"].mean(), 2),
             "avg_revenue_per_vis" : round(df["Revenue_per_Visitor"].mean(), 2),
         }
