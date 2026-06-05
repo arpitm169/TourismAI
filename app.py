@@ -29,7 +29,6 @@ import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv()
-GOOGLE_API_KEY_MISSING = not bool(os.getenv("GOOGLE_API_KEY"))
 warnings.filterwarnings("ignore")
 
 # ─── Local Modules ───────────────────────────────────────────────────────────
@@ -84,72 +83,72 @@ st.set_page_config(
 LEGACY_CSS = """
 <style>
 /* ── Global ──────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 .block-container { padding: 1.5rem 2rem; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    background: #edf7ed;
-    border-right: 1px solid #c8e6c9;
+    background: #f5f2ff;
+    border-right: 1px solid #e5d8fb;
 }
 [data-testid="stSidebar"] * { color: #374151 !important; }
 
 /* ── Metric Cards ────────────────────────────────────────────────── */
 .metric-card {
     background: #ffffff;
-    border: 1px solid #c8e6c9;
+    border: 1px solid #e5d8fb;
     border-radius: 12px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 0.75rem;
     transition: transform .2s, box-shadow .2s;
 }
-.metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(76,175,130,.12); }
-.metric-value { font-size: 2rem; font-weight: 700; color: #1b5e3b; font-family: 'JetBrains Mono', monospace; }
-.metric-label { font-size: 0.78rem; color: #2e7d52; text-transform: uppercase; letter-spacing: .08em; }
-.metric-delta { font-size: 0.75rem; color: #2e7d52; margin-top: 2px; }
+.metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(167,139,250,.12); }
+.metric-value { font-size: 2rem; font-weight: 700; color: #5b4a8a; font-family: 'Space Mono', monospace; }
+.metric-label { font-size: 0.78rem; color: #7c6fcd; text-transform: uppercase; letter-spacing: .08em; }
+.metric-delta { font-size: 0.75rem; color: #7c6fcd; margin-top: 2px; }
 
 /* ── Section Headers ─────────────────────────────────────────────── */
 .section-header {
     font-size: 1.5rem; font-weight: 700;
-    color: #1b5e3b; margin-bottom: 1.25rem;
-    border-left: 4px solid #4caf82;
+    color: #5b4a8a; margin-bottom: 1.25rem;
+    border-left: 4px solid #c4b5fd;
     padding-left: 0.75rem;
 }
 
 /* ── Agent Chat ──────────────────────────────────────────────────── */
 .chat-user {
-    background: #e8f5e9; border-radius: 12px 12px 2px 12px;
+    background: #dbeafe; border-radius: 12px 12px 2px 12px;
     padding: .75rem 1rem; margin: .5rem 0; max-width: 80%; float: right; clear: both;
     color: #374151;
 }
 .chat-agent {
-    background: #ffffff; border: 1px solid #c8e6c9;
+    background: #ffffff; border: 1px solid #e5d8fb;
     border-radius: 12px 12px 12px 2px;
     padding: .75rem 1rem; margin: .5rem 0; max-width: 90%; float: left; clear: both;
     color: #374151;
 }
 .agent-tag {
     font-size: .7rem; font-weight: 600; letter-spacing: .1em;
-    color: #2e7d52; text-transform: uppercase; margin-bottom: .3rem;
+    color: #7c6fcd; text-transform: uppercase; margin-bottom: .3rem;
 }
 .clearfix { clear: both; }
 
 /* ── Status Badges ───────────────────────────────────────────────── */
-.badge-success { background:#e8f5e9; color:#1b5e3b; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
-.badge-warn    { background:#fffde7; color:#f57f17; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
-.badge-info    { background:#f1f8f1; color:#1b5e3b; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
+.badge-success { background:#ecfdf5; color:#065f46; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
+.badge-warn    { background:#fffbeb; color:#92400e; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
+.badge-info    { background:#eff6ff; color:#3730a3; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:600; }
 
 /* ── Recommendation Cards ────────────────────────────────────────── */
 .rec-card {
-    background: #ffffff; border: 1px solid #c8e6c9;
+    background: #ffffff; border: 1px solid #e5d8fb;
     border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: .75rem;
 }
-.rec-card h4 { color: #1b5e3b; margin: 0 0 .4rem; }
-.rec-card p  { color: #2e7d52; font-size: .85rem; margin: 0; }
+.rec-card h4 { color: #5b4a8a; margin: 0 0 .4rem; }
+.rec-card p  { color: #7c6fcd; font-size: .85rem; margin: 0; }
 
 /* ── Hide Streamlit branding ─────────────────────────────────────── */
  #MainMenu { visibility: hidden; }
@@ -168,28 +167,28 @@ html, body, [class*="css"] {
 GLOBAL_CSS = """
 <style>
 :root {
-    --bg-main: #f4faf4;
+    --bg-main: #faf8ff;
     --bg-card: #ffffff;
-    --bg-sidebar: #edf7ed;
-    --accent-primary: #4caf82;
-    --accent-secondary: #1b5e3b;
-    --accent-light: #e8f5e9;
-    --border-color: #c8e6c9;
-    --text-primary: #1a2e1a;
-    --text-secondary: #2e7d52;
-    --text-muted: #6b9e6b;
-    --success: #a5d6a7;
-    --warning: #fff9c4;
-    --error: #ffcdd2;
-    --user-bubble: #e8f5e9;
+    --bg-sidebar: #f5f2ff;
+    --accent-primary: #c4b5fd;
+    --accent-secondary: #5b4a8a;
+    --accent-light: #ede9fe;
+    --border-color: #e5d8fb;
+    --text-primary: #374151;
+    --text-secondary: #7c6fcd;
+    --text-muted: #9ca3af;
+    --success: #a7f3d0;
+    --warning: #fde68a;
+    --error: #fca5a5;
+    --user-bubble: #dbeafe;
     --agent-bubble: #ffffff;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 html, body, [class*="css"], .stApp {
     color: #374151;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
     background: var(--bg-main) !important;
@@ -207,16 +206,16 @@ header { background: transparent !important; }
 hr { border-color: var(--border-color) !important; opacity: .75; }
 
 h1, h1 span {
-    color: #1b5e3b !important;
+    color: #5b4a8a !important;
     font-size: 1.8rem !important;
     font-weight: 700 !important;
 }
 h2, h2 span {
-    color: #1b5e3b !important;
+    color: #5b4a8a !important;
     font-weight: 600 !important;
 }
 h3, h3 span {
-    color: #1b5e3b !important;
+    color: #5b4a8a !important;
     font-weight: 500 !important;
 }
 p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
@@ -251,18 +250,18 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(76,175,130,.08);
+    box-shadow: 0 2px 12px rgba(167,139,250,.08);
     margin-bottom: .75rem;
     padding: 1.25rem 1.5rem;
     transition: transform .2s ease, box-shadow .2s ease;
 }
 .metric-card:hover, .rec-card:hover {
-    box-shadow: 0 6px 18px rgba(76,175,130,.14);
+    box-shadow: 0 6px 18px rgba(167,139,250,.14);
     transform: translateY(-1px);
 }
 .metric-value {
     color: var(--accent-secondary);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Space Mono', monospace;
     font-size: 2rem;
     font-weight: 700;
 }
@@ -285,7 +284,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(76,175,130,.08);
+    box-shadow: 0 2px 12px rgba(167,139,250,.08);
     padding: 1rem;
 }
 [data-testid="stMetricLabel"] p { color: var(--text-secondary) !important; }
@@ -297,18 +296,18 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     font-weight: 600;
     padding: 2px 10px;
 }
-.badge-success { background: #e8f5e9; border: 1px solid #a5d6a7; color: #1b5e3b; }
-.badge-info { background: #f1f8f1; border: 1px solid #c8e6c9; color: #1b5e3b; }
-.badge-warn { background: #fffde7; border: 1px solid #fff176; color: #f57f17; }
+.badge-success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+.badge-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #3730a3; }
+.badge-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
 
 .stButton > button,
 [data-testid="stFormSubmitButton"] button,
 [data-testid="stBaseButton-primary"],
 [data-testid="stFileUploaderDropzone"] button {
-    background: linear-gradient(135deg, #4caf82, #2e7d52) !important;
+    background: linear-gradient(135deg, #c4b5fd, #a78bfa) !important;
     border: none !important;
     border-radius: 10px !important;
-    box-shadow: 0 2px 8px rgba(46,125,82,.25) !important;
+    box-shadow: 0 2px 8px rgba(124,111,205,.25) !important;
     color: #ffffff !important;
     font-weight: 600 !important;
     padding: .5rem 1.5rem !important;
@@ -335,7 +334,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stNumberInput"] input,
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
 [data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
-    background: #f9fdf9 !important;
+    background: #fdfbff !important;
     border: 1.5px solid var(--border-color) !important;
     border-radius: 10px !important;
     color: var(--text-primary) !important;
@@ -347,7 +346,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within,
 [data-testid="stMultiSelect"] div[data-baseweb="select"] > div:focus-within {
     border-color: var(--accent-primary) !important;
-    box-shadow: 0 0 0 3px rgba(76,175,130,.15) !important;
+    box-shadow: 0 0 0 3px rgba(167,139,250,.15) !important;
 }
 [data-testid="stTextInput"] input::placeholder,
 [data-testid="stTextArea"] textarea::placeholder {
@@ -358,7 +357,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(76,175,130,.08);
+    box-shadow: 0 2px 12px rgba(167,139,250,.08);
     overflow: hidden;
 }
 [data-testid="stExpander"] details { border: none !important; }
@@ -395,34 +394,34 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stDataFrame"], [data-testid="stTable"] {
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(76,175,130,.08);
+    box-shadow: 0 2px 12px rgba(167,139,250,.08);
     overflow: hidden;
 }
 
 [data-testid="stAlert"] {
     border: 0;
     border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(76,175,130,.08);
+    box-shadow: 0 2px 10px rgba(167,139,250,.08);
 }
 [data-testid="stAlert"][kind="success"] {
-    background: #e8f5e9 !important;
-    border-left: 4px solid #4caf82 !important;
-    color: #1b5e3b !important;
+    background: #ecfdf5 !important;
+    border-left: 4px solid #34d399 !important;
+    color: #065f46 !important;
 }
 [data-testid="stAlert"][kind="warning"] {
-    background: #fffde7 !important;
-    border-left: 4px solid #f9a825 !important;
-    color: #f57f17 !important;
+    background: #fffbeb !important;
+    border-left: 4px solid #f59e0b !important;
+    color: #92400e !important;
 }
 [data-testid="stAlert"][kind="error"] {
     background: #fff1f2 !important;
-    border-left: 4px solid #ef5350 !important;
+    border-left: 4px solid #f43f5e !important;
     color: #881337 !important;
 }
 [data-testid="stAlert"][kind="info"] {
-    background: #f1f8f1 !important;
-    border-left: 4px solid #4caf82 !important;
-    color: #1b5e3b !important;
+    background: #eff6ff !important;
+    border-left: 4px solid #a78bfa !important;
+    color: #3730a3 !important;
 }
 [data-testid="stAlert"] * { color: inherit !important; }
 
@@ -473,39 +472,6 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     color: var(--accent-primary) !important;
     stroke: var(--accent-primary) !important;
 }
-
-[data-testid="stProgress"],
-[data-testid="stProgress"] > div,
-[data-testid="stProgress"] [data-baseweb="progress-bar"] {
-    background: transparent !important;
-    background-color: transparent !important;
-}
-[data-testid="stProgress"] [data-baseweb="progress-bar"] > div,
-[data-testid="stProgress"] [data-baseweb="progress-bar"] > div > div {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 999px !important;
-    overflow: hidden !important;
-}
-[data-testid="stProgress"] div[role="progressbar"] > div > div > div {
-    background-color: var(--accent-primary) !important;
-    background-image: none !important;
-    border: 0 !important;
-}
-
-.training-status-panel {
-    background: #ffffff;
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(76,175,130,.08);
-    color: var(--text-primary);
-    font-size: 1rem;
-    line-height: 1.45;
-    margin: .75rem 0 1rem;
-    padding: 1rem 1.15rem;
-}
-
 .stSlider [data-baseweb="slider"] > div { color: var(--accent-primary) !important; }
 .stSlider [role="slider"] {
     background: var(--accent-primary) !important;
@@ -513,22 +479,9 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 }
 
 [data-testid="stFileUploaderDropzone"] {
-    background: #f9fdf9 !important;
+    background: #fdfbff !important;
     border: 1.5px dashed var(--border-color) !important;
     border-radius: 12px !important;
-}
-.chart-card {
-    background: rgba(255,255,255,.86);
-    border: 1px solid #dbe4dc;
-    border-radius: 12px;
-    box-shadow: 0 10px 28px rgba(15,23,42,.07);
-    margin-bottom: 1rem;
-    padding: 1rem 1rem .75rem;
-}
-.chart-card [data-testid="stCaptionContainer"] {
-    color: #334155 !important;
-    font-size: .86rem;
-    line-height: 1.35;
 }
 div[data-testid="stHorizontalBlock"] > div { flex: 1 1 0%; }
 </style>
@@ -577,11 +530,6 @@ def render_sidebar() -> str:
     with st.sidebar:
         st.markdown("## 🌍 TourismAI")
         st.markdown("*Multi-Agent Analytics Platform*")
-        if GOOGLE_API_KEY_MISSING and not os.getenv("GOOGLE_API_KEY"):
-            st.warning(
-                "No Google API key found — running in offline mock mode. "
-                "Add GOOGLE_API_KEY to your .env file for full AI responses."
-            )
         st.divider()
 
         if not st.session_state.get("auto_load_attempted"):
@@ -609,24 +557,13 @@ def render_sidebar() -> str:
             st.success(f"✅ Synthetic dataset ready ({len(st.session_state.df):,} rows)")
 
         if uploaded:
-            upload_loaded_ok = st.session_state.get("last_uploaded_file_id") == uploaded.file_id
             if st.session_state.get("last_uploaded_file_id") != uploaded.file_id:
                 with st.spinner("Loading dataset…"):
-                    try:
-                        import io
-                        raw = pd.read_csv(io.BytesIO(uploaded.read()))
-                        _load_and_process(raw)
-                        st.session_state.last_uploaded_file_id = uploaded.file_id
-                        upload_loaded_ok = True
-                    except Exception as e:
-                        upload_loaded_ok = False
-                        st.error(
-                            f"Could not load dataset: {str(e)}. Make sure it has the "
-                            "required columns: Location, Country, Category, Visitors, "
-                            "Rating, Revenue, Accommodation_Available."
-                        )
-            if upload_loaded_ok:
-                st.success(f"✅ Uploaded: {uploaded.name} ({len(st.session_state.df):,} rows)")
+                    import io
+                    raw = pd.read_csv(io.BytesIO(uploaded.read()))
+                    _load_and_process(raw)
+                    st.session_state.last_uploaded_file_id = uploaded.file_id
+            st.success(f"✅ Uploaded: {uploaded.name} ({len(st.session_state.df):,} rows)")
 
         st.divider()
 
@@ -646,7 +583,6 @@ def render_sidebar() -> str:
             "Google Gemini API Key (optional)",
             type     = "password",
             value    = os.getenv("GOOGLE_API_KEY", ""),
-            placeholder = "YOUR_GEMINI_API_KEY_HERE",
             help     = "Leave blank to use intelligent mock responses.",
         )
         if api_key:
@@ -655,11 +591,11 @@ def render_sidebar() -> str:
             del os.environ["GOOGLE_API_KEY"]
 
         model = st.selectbox("Model", [
-            "gemini-2.5-flash",
-            "gemini-1.5-flash-002",
-            "gemini-1.5-flash-001",
-            "gemini-1.5-flash-8b",
             "gemini-1.5-flash-latest",
+            "gemini-1.5-flash-001",
+            "gemini-1.5-flash-002",
+            "gemini-1.5-flash-8b",
+            "gemini-2.0-flash",
         ])
         st.info("After changing the model, click Reinit Agents below to apply.")
 
@@ -695,7 +631,7 @@ def render_sidebar() -> str:
             st.markdown(f"""
             <div style='background:#ffffff;border:1px solid var(--border-color);border-radius:8px;padding:.75rem;margin-top:.5rem'>
             <div style='font-size:.7rem;color:var(--text-secondary);text-transform:uppercase'>Stacking v2</div>
-            <div style='color:#1b5e3b;font-weight:700;font-size:1.1rem'>
+            <div style='color:#065f46;font-weight:700;font-size:1.1rem'>
               {m.get('accuracy','–')}% Acc / {m.get('recall','–')}% Recall
             </div>
             <div style='font-size:.7rem;color:var(--accent-secondary);margin-top:2px'>
@@ -735,21 +671,14 @@ def _load_and_process(raw: pd.DataFrame) -> None:
 def _build_rag(df: pd.DataFrame) -> None:
     with st.spinner("Building RAG vectorstore…"):
         rag = TourismRAGPipeline()
+        n   = rag.ingest_dataframe(df)
         st.session_state.rag       = rag
-        try:
-            n = rag.ingest_dataframe(df)
-            st.session_state.rag_built = True
-        except Exception as e:
-            st.session_state.rag_built = True
-            st.warning(
-                "Vector database failed to build — agent chat will use keyword "
-                f"search as fallback. {str(e)}"
-            )
+        st.session_state.rag_built = True
     # Build agents (mock mode until API key set)
-    _build_agents(model="gemini-2.5-flash")
+    _build_agents()
 
 
-def _build_agents(api_key: str = "", model: str = "gemini-2.5-flash") -> None:
+def _build_agents(api_key: str = "", model: str = "gemini-1.5-flash-latest") -> None:
     rag = st.session_state.rag
     if rag is None:
         return
@@ -922,221 +851,11 @@ def page_overview() -> None:
         st.divider()
         st.markdown("### 📈 Dataset at a Glance")
         m1, m2, m3, m4, m5 = st.columns(5)
-        _metric_card(m1, "Destinations",   f"{eda['n_rows']:,}",                "total records")
-        _metric_card(m2, "Countries",      f"{df['Country'].nunique():,}",       "unique countries")
-        _metric_card(m3, "High Potential", f"{eda['high_rev_pct']}%",            "top-25% revenue")
-        _metric_card(m4, "Avg Rating",     f"{eda['avg_rating']}",               "out of 5.0")
+        _metric_card(m1, "Destinations",  f"{eda['n_rows']:,}",         "total records")
+        _metric_card(m2, "Countries",     f"{df['Country'].nunique():,}","unique countries")
+        _metric_card(m3, "High Potential",f"{eda['high_rev_pct']}%",    "top-25% revenue")
+        _metric_card(m4, "Avg Rating",    f"{eda['avg_rating']}",        "out of 5.0")
         _metric_card(m5, "Avg Rev/Visitor",f"${eda['avg_revenue_per_vis']:.0f}", "per visitor")
-
-        st.divider()
-
-        # ── Live charts row ─────────────────────────────────────────────
-        st.markdown("### 📊 Live Snapshot")
-        ch1, ch2 = st.columns(2)
-
-        # Chart 1: Average Revenue per Visitor by Category
-        with ch1:
-            import plotly.express as px
-            with st.container():
-                st.markdown('<div class="chart-card">', unsafe_allow_html=True)
-                cat_rev = (
-                    df.groupby("Category")["Revenue_per_Visitor"]
-                    .mean()
-                    .reset_index()
-                    .sort_values("Revenue_per_Visitor", ascending=True)
-                )
-                top_cat = cat_rev.iloc[-1]
-                avg_cat_rev = cat_rev["Revenue_per_Visitor"].mean()
-                fig_cat = px.bar(
-                    cat_rev,
-                    x="Revenue_per_Visitor",
-                    y="Category",
-                    orientation="h",
-                    title="Avg Revenue per Visitor by Category",
-                    labels={"Revenue_per_Visitor": "Avg Rev/Visitor ($)", "Category": ""},
-                    color="Revenue_per_Visitor",
-                    color_continuous_scale=LIVE_SEQUENTIAL_TEAL,
-                    text="Revenue_per_Visitor",
-                )
-                fig_cat.update_traces(
-                    marker=dict(cornerradius=6),
-                    texttemplate="$%{x:.1f}",
-                    textposition="outside",
-                    cliponaxis=False,
-                    hovertemplate="<b>%{y}</b><br>Avg rev/visitor: $%{x:.2f}<extra></extra>",
-                )
-                fig_cat.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    coloraxis_showscale=False,
-                    bargap=0.24,
-                    height=420,
-                    margin=dict(l=125, r=70, t=52, b=62),
-                    font=dict(family="DM Sans", color="#0f172a"),
-                    title_font=dict(size=14, color="#475569"),
-                    hoverlabel=dict(bgcolor="#0f172a", font_color="#f8fafc"),
-                )
-                fig_cat.update_xaxes(
-                    gridcolor="#e2e8f0",
-                    gridwidth=0.5,
-                    tickprefix="$",
-                    tickfont=dict(color="#334155", size=12),
-                    title_font=dict(color="#334155", size=13),
-                )
-                fig_cat.update_yaxes(
-                    gridcolor="rgba(0,0,0,0)",
-                    tickfont=dict(color="#334155", size=13),
-                    title_font=dict(color="#334155"),
-                    automargin=True,
-                )
-                st.plotly_chart(
-                    fig_cat,
-                    use_container_width=True,
-                    config={"displayModeBar": False},
-                )
-                st.caption(
-                    f"{top_cat['Category']} leads at ${top_cat['Revenue_per_Visitor']:.2f} "
-                    f"per visitor; category average is ${avg_cat_rev:.2f}."
-                )
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        # Chart 2: High Revenue Potential % by Category
-        with ch2:
-            with st.container():
-                st.markdown('<div class="chart-card">', unsafe_allow_html=True)
-                hrp_cat = (
-                    df.groupby("Category")["High_Revenue_Potential"]
-                    .mean()
-                    .mul(100)
-                    .reset_index()
-                    .sort_values("High_Revenue_Potential", ascending=True)
-                )
-                hrp_cat.columns = ["Category", "High_Rev_Pct"]
-                top_hrp = hrp_cat.iloc[-1]
-                avg_hrp = hrp_cat["High_Rev_Pct"].mean()
-                fig_hrp = px.bar(
-                    hrp_cat,
-                    x="High_Rev_Pct",
-                    y="Category",
-                    orientation="h",
-                    title="High Revenue Potential % by Category",
-                    labels={"High_Rev_Pct": "% High Revenue Potential", "Category": ""},
-                    color="High_Rev_Pct",
-                    color_continuous_scale=LIVE_SEQUENTIAL_INDIGO,
-                    text="High_Rev_Pct",
-                )
-                fig_hrp.update_traces(
-                    marker=dict(cornerradius=6),
-                    texttemplate="%{x:.1f}%",
-                    textposition="outside",
-                    cliponaxis=False,
-                    hovertemplate="<b>%{y}</b><br>High-potential share: %{x:.1f}%<extra></extra>",
-                )
-                fig_hrp.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    coloraxis_showscale=False,
-                    bargap=0.24,
-                    height=420,
-                    margin=dict(l=125, r=70, t=52, b=62),
-                    font=dict(family="DM Sans", color="#0f172a"),
-                    title_font=dict(size=14, color="#475569"),
-                    hoverlabel=dict(bgcolor="#0f172a", font_color="#f8fafc"),
-                )
-                fig_hrp.update_xaxes(
-                    gridcolor="#e2e8f0",
-                    gridwidth=0.5,
-                    ticksuffix="%",
-                    tickfont=dict(color="#334155", size=12),
-                    title_font=dict(color="#334155", size=13),
-                )
-                fig_hrp.update_yaxes(
-                    gridcolor="rgba(0,0,0,0)",
-                    tickfont=dict(color="#334155", size=13),
-                    title_font=dict(color="#334155"),
-                    automargin=True,
-                )
-                st.plotly_chart(
-                    fig_hrp,
-                    use_container_width=True,
-                    config={"displayModeBar": False},
-                )
-                st.caption(
-                    f"{top_hrp['Category']} has the strongest high-revenue mix "
-                    f"at {top_hrp['High_Rev_Pct']:.1f}%; category average is {avg_hrp:.1f}%."
-                )
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        # Chart 3: Top 10 Countries by Total Revenue — full width
-        st.markdown("### 🌍 Top 10 Countries by Total Revenue")
-        top_countries = (
-            df.groupby("Country")["Revenue"]
-            .sum()
-            .reset_index()
-            .sort_values("Revenue", ascending=False)
-            .head(10)
-        )
-        total_revenue = df["Revenue"].sum()
-        top_countries["Share"] = top_countries["Revenue"].div(total_revenue).mul(100)
-        top_country = top_countries.iloc[0]
-        with st.container():
-            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
-            fig_cou = px.bar(
-                top_countries,
-                x="Country",
-                y="Revenue",
-                title="",
-                labels={"Revenue": "Total Revenue ($)", "Country": ""},
-                color="Country",
-                color_discrete_sequence=LIVE_CHART_COLORS,
-                text="Revenue",
-                custom_data=["Share"],
-            )
-            fig_cou.update_traces(
-                marker=dict(cornerradius=6),
-                texttemplate="$%{y:,.0f}<br>%{customdata[0]:.1f}%",
-                textposition="outside",
-                cliponaxis=False,
-                hovertemplate=(
-                    "<b>%{x}</b><br>Total revenue: $%{y:,.0f}"
-                    "<br>Dataset share: %{customdata[0]:.1f}%<extra></extra>"
-                ),
-            )
-            fig_cou.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                bargap=0.22,
-                height=430,
-                margin=dict(l=74, r=32, t=24, b=82),
-                font=dict(family="DM Sans", color="#0f172a"),
-                showlegend=False,
-                hoverlabel=dict(bgcolor="#0f172a", font_color="#f8fafc"),
-            )
-            fig_cou.update_xaxes(
-                gridcolor="rgba(0,0,0,0)",
-                tickfont=dict(color="#334155", size=12),
-                title_font=dict(color="#334155", size=13),
-                automargin=True,
-            )
-            fig_cou.update_yaxes(
-                gridcolor="#e2e8f0",
-                gridwidth=0.5,
-                tickprefix="$",
-                tickfont=dict(color="#334155", size=12),
-                title_font=dict(color="#334155", size=13),
-            )
-            st.plotly_chart(
-                fig_cou,
-                use_container_width=True,
-                config={"displayModeBar": False},
-            )
-            st.caption(
-                f"{top_country['Country']} is the top revenue market with "
-                f"${top_country['Revenue']:,.0f}, representing {top_country['Share']:.1f}% "
-                "of total dataset revenue."
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
     else:
         st.info("👈 Load a dataset from the sidebar to begin.")
 
@@ -1413,8 +1132,6 @@ def page_predict() -> None:
         category   = c4.selectbox("Category", sorted(df["Category"].unique()))
         country    = c5.selectbox("Country",  sorted(df["Country"].unique()))
         acc        = c6.radio("Accommodation", ["Yes", "No"])
-        confidence = st.slider("Confidence level", min_value=0.80, max_value=0.95,
-                               value=0.90, step=0.05, format="%.0f%%")
 
         submitted = st.form_submit_button("🚀 Predict", use_container_width=True)
 
@@ -1464,30 +1181,21 @@ def page_predict() -> None:
         X_clf = pd.DataFrame([[values.get(f, 0) for f in clf_feat_names]],
                              columns=clf_feat_names)
         hrp_pred  = clf.predict(X_clf)[0]
-        proba_all = clf.model.predict_proba(X_clf)[0]  # [prob_class_0, prob_class_1]
-        hrp_proba = float(proba_all[1])
+        hrp_proba = clf.predict_proba(X_clf)[0]
 
         # ── Revenue Regression ───────────────────────────────────────────────
         rev_feat_names = prep.get_revenue_regression_features()
         X_rev = pd.DataFrame([[values.get(f, 0) for f in rev_feat_names]],
                              columns=rev_feat_names)
         rev_pred = rev.predict(X_rev)[0]
-        rev_lo, rev_hi = rev.predict_interval(X_rev, confidence=confidence)
-        rev_lo, rev_hi = rev_lo[0], rev_hi[0]
+        rev_lo, rev_hi = rev.predict_interval(X_rev, confidence=0.90)
 
         # ── Visitors Regression ──────────────────────────────────────────────
         vis_feat_names = prep.get_visitors_regression_features()
         X_vis = pd.DataFrame([[values.get(f, 0) for f in vis_feat_names]],
                              columns=vis_feat_names)
         vis_pred = vis.predict(X_vis)[0]
-        vis_lo, vis_hi = vis.predict_interval(X_vis, confidence=confidence)
-        vis_lo, vis_hi = vis_lo[0], vis_hi[0]
-        confidence_pct = confidence * 100
-
-        rev_range = rev_hi - rev_lo
-        rev_progress = 50 if rev_range == 0 else int(np.clip((rev_pred - rev_lo) / rev_range, 0, 1) * 100)
-        vis_range = vis_hi - vis_lo
-        vis_progress = 50 if vis_range == 0 else int(np.clip((vis_pred - vis_lo) / vis_range, 0, 1) * 100)
+        vis_lo, vis_hi = vis.predict_interval(X_vis, confidence=0.90)
 
         # ── Display ──────────────────────────────────────────────────────────
         st.divider()
@@ -1501,7 +1209,6 @@ def page_predict() -> None:
           <div style="margin:.5rem 0"><span class="{badge}"
           style="font-size:1rem;padding:6px 18px">{label}</span></div>
           <div class="metric-delta">Confidence: {hrp_proba:.1%}</div>
-          <div class="metric-delta">Not High Revenue: {(1 - hrp_proba):.1%}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1509,19 +1216,17 @@ def page_predict() -> None:
         <div class="metric-card" style="text-align:center">
           <div class="metric-label">Predicted Revenue</div>
           <div class="metric-value">${rev_pred:,.0f}</div>
-          <div class="metric-delta">{confidence_pct:.0f}% confidence interval: ${rev_lo:,.0f} - ${rev_hi:,.0f}</div>
+          <div class="metric-delta">90% CI: ${rev_lo[0]:,.0f} - ${rev_hi[0]:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
-        r2.progress(rev_progress)
 
         r3.markdown(f"""
         <div class="metric-card" style="text-align:center">
           <div class="metric-label">Predicted Visitors</div>
           <div class="metric-value">{int(vis_pred):,}</div>
-          <div class="metric-delta">{confidence_pct:.0f}% confidence interval: {int(vis_lo):,} - {int(vis_hi):,}</div>
+          <div class="metric-delta">90% CI: {int(vis_lo[0]):,} - {int(vis_hi[0]):,}</div>
         </div>
         """, unsafe_allow_html=True)
-        r3.progress(vis_progress)
         # ── SHAP: Why this prediction? ───────────────────────────────────────
         st.divider()
 
@@ -1576,7 +1281,7 @@ def page_predict() -> None:
                     fig_wf, ax_wf = plt.subplots(figsize=(10, 5))
                     shap.plots.waterfall(explanation, max_display=12, show=False)
                     fig_wf = plt.gcf()
-                    fig_wf.patch.set_facecolor("#f4faf4")
+                    fig_wf.patch.set_facecolor("#faf8ff")
                     st.pyplot(fig_wf, use_container_width=True)
                     plt.close(fig_wf)
                 except Exception as e:
@@ -1602,7 +1307,7 @@ def page_predict() -> None:
                             show       = False,
                         )
                         fig_sum = plt.gcf()
-                        fig_sum.patch.set_facecolor("#f4faf4")
+                        fig_sum.patch.set_facecolor("#faf8ff")
                         st.pyplot(fig_sum, use_container_width=True)
                         plt.close(fig_sum)
                     except Exception as e:
@@ -1617,11 +1322,11 @@ def page_chat() -> None:
     <style>
     /* ── Page Title ──────────────────────────────────────────────────── */
     .chat-page-title {
-        color: #1b5e3b;
+        color: #5b4a8a;
         font-weight: 700;
         font-size: 1.5rem;
         margin-bottom: 1.25rem;
-        border-left: 4px solid #388e6c;
+        border-left: 4px solid #a78bfa;
         padding-left: 0.75rem;
     }
 
@@ -1632,7 +1337,7 @@ def page_chat() -> None:
         border-bottom: 0;
         border-radius: 16px 16px 0 0;
         padding: 1.5rem;
-        box-shadow: 0 2px 12px rgba(76,175,130,0.08);
+        box-shadow: 0 2px 12px rgba(167,139,250,0.08);
         margin-bottom: 0;
     }
     .chat-page-wrap [data-testid="stForm"],
@@ -1641,7 +1346,7 @@ def page_chat() -> None:
         border: 1px solid var(--border-color);
         border-radius: 0 0 16px 16px;
         border-top: 0;
-        box-shadow: 0 10px 18px rgba(76,175,130,0.08);
+        box-shadow: 0 10px 18px rgba(167,139,250,0.08);
         padding: 0 1.5rem 1.5rem;
         margin-bottom: 1.25rem;
     }
@@ -1664,7 +1369,7 @@ def page_chat() -> None:
     /* ── User Bubble ─────────────────────────────────────────────────── */
     .user-bubble {
         background: var(--user-bubble);
-        color: #1a3a1a;
+        color: #1e3a5f;
         border-radius: 18px 18px 4px 18px;
         padding: 10px 16px;
         max-width: 72%;
@@ -1678,7 +1383,7 @@ def page_chat() -> None:
         text-align: right;
         font-size: 10px;
         font-weight: 600;
-        color: #4caf82;
+        color: #60a5fa;
         margin-bottom: 4px;
         text-transform: uppercase;
         letter-spacing: 0;
@@ -1695,7 +1400,7 @@ def page_chat() -> None:
         margin-right: auto;
         margin-bottom: 12px;
         font-size: 14px;
-        box-shadow: 0 2px 8px rgba(76,175,130,0.12);
+        box-shadow: 0 2px 8px rgba(180,160,220,0.12);
         word-wrap: break-word;
     }
     .agent-bubble-label {
@@ -1712,7 +1417,7 @@ def page_chat() -> None:
 
     /* ── Agent Dropdown ──────────────────────────────────────────────── */
     .chat-page-wrap [data-testid="stSelectbox"] > div > div {
-        background: #f9fdf9;
+        background: #fdfbff;
         border: 1.5px solid var(--border-color);
         border-radius: 10px;
         color: var(--text-primary);
@@ -1721,7 +1426,7 @@ def page_chat() -> None:
     /* ── Chat Input Area (text_area) ─────────────────────────────────── */
     .chat-page-wrap [data-testid="stTextArea"] textarea,
     [data-testid="stForm"] [data-testid="stTextArea"] textarea {
-        background: #f9fdf9 !important;
+        background: #fdfbff !important;
         border: 1.5px solid var(--border-color) !important;
         border-radius: 12px !important;
         font-size: 14px !important;
@@ -1731,18 +1436,18 @@ def page_chat() -> None:
     .chat-page-wrap [data-testid="stTextArea"] textarea:focus,
     [data-testid="stForm"] [data-testid="stTextArea"] textarea:focus {
         border-color: var(--accent-primary) !important;
-        box-shadow: 0 0 0 3px rgba(76,175,130,0.15) !important;
+        box-shadow: 0 0 0 3px rgba(167,139,250,0.15) !important;
     }
 
     /* ── Send Button (primary / first form_submit) ───────────────────── */
     .chat-page-wrap [data-testid="stFormSubmitButton"]:first-of-type button {
-        background: linear-gradient(135deg, #4caf82, #2e7d52) !important;
+        background: linear-gradient(135deg, #c4b5fd, #a78bfa) !important;
         color: white !important;
         border-radius: 10px !important;
         border: none !important;
         font-weight: 600 !important;
         padding: 0.5rem 2rem !important;
-        box-shadow: 0 2px 8px rgba(46,125,82,0.25) !important;
+        box-shadow: 0 2px 8px rgba(124,111,205,0.25) !important;
         transition: opacity 0.2s ease, transform 0.2s ease;
     }
     .chat-page-wrap [data-testid="stFormSubmitButton"]:first-of-type button:hover {
@@ -1760,21 +1465,21 @@ def page_chat() -> None:
         transition: background 0.2s ease;
     }
     .chat-page-wrap [data-testid="stFormSubmitButton"]:last-of-type button:hover {
-        background: #edf7ed !important;
+        background: #f5f2ff !important;
     }
 
     /* ── Quick Prompt Buttons ────────────────────────────────────────── */
     .chat-page-wrap .quick-prompts-section button {
         background: #ffffff !important;
-        border: 1px solid #c8e6c9 !important;
+        border: 1px solid #e5d8fb !important;
         border-radius: 20px !important;
-        color: #1b5e3b !important;
+        color: #5b4a8a !important;
         font-size: 13px !important;
         padding: 6px 16px !important;
         transition: background 0.2s ease;
     }
     .chat-page-wrap .quick-prompts-section button:hover {
-        background: #edf7ed !important;
+        background: #f5f2ff !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1818,23 +1523,11 @@ def page_chat() -> None:
         if cols[i % 3].button(q, key=f"qp_{i}", use_container_width=True):
             st.session_state.chat_history.append({"role": "user", "content": q})
             with st.spinner("Agent thinking…"):
-                try:
-                    result = mas.chat(
-                        q,
-                        agent_role=agent_role,
-                        chat_history=st.session_state.chat_history[-6:],
-                    )
-                except Exception as e:
-                    result = {
-                        "agent": "Agent",
-                        "response": f"Agent failed to respond. Please try again. Error: {str(e)}",
-                        "source": "mock",
-                    }
+                result = mas.chat(q, agent_role=agent_role)
             st.session_state.chat_history.append({
                 "role"   : "assistant",
                 "agent"  : result["agent"],
                 "content": result["response"],
-                "source" : result.get("source", "mock"),
             })
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -1850,10 +1543,8 @@ def page_chat() -> None:
             )
         else:
             agent_name = msg.get("agent", "Agent")
-            source     = msg.get("source", "mock")
-            source_tag = "🟢 Gemini" if source == "gemini" else "🟡 Mock"
             chat_html_parts.append(
-                f'<div class="agent-bubble-label">{agent_name} · {source_tag}</div>'
+                f'<div class="agent-bubble-label">{agent_name}</div>'
                 f'<div class="agent-bubble">{msg["content"]}</div>'
                 '<div class="chat-clearfix"></div>'
             )
@@ -1903,24 +1594,12 @@ def page_chat() -> None:
             "role": "user", "content": user_input.strip()
         })
         with st.spinner("Agent thinking…"):
-            try:
-                result = mas.chat(
-                    user_input.strip(),
-                    agent_role=agent_role,
-                    chat_history=st.session_state.chat_history[-6:],
-                )
-            except Exception as e:
-                result = {
-                    "agent": "Agent",
-                    "response": f"Agent failed to respond. Please try again. Error: {str(e)}",
-                    "source": "mock",
-                }
+            result = mas.chat(user_input.strip(), agent_role=agent_role)
 
         st.session_state.chat_history.append({
             "role"   : "assistant",
             "agent"  : result["agent"],
             "content": result["response"],
-            "source" : result.get("source", "mock"),
         })
         st.rerun()
 
@@ -1996,12 +1675,7 @@ def page_recommendations() -> None:
                 )
                 if st.button(f"Generate AI Plan for {row['Location']}", key=f"rec_btn_{row['Location']}"):
                     with st.spinner(f"Generating recommendations for {row['Location']}…"):
-                        try:
-                            result = mas.chat(query, agent_role="recommendation")
-                        except Exception as e:
-                            result = {
-                                "response": f"Agent failed to respond. Please try again. Error: {str(e)}"
-                            }
+                        result = mas.chat(query, agent_role="recommendation")
                     st.markdown(result["response"])
 
 

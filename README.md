@@ -1,6 +1,6 @@
 # 🌍 TourismAI — Multi-Agent RAG + Predictive Analytics System
 
-> Final Year Project | Intelligent Tourism Management & Revenue Optimisation
+> Final Year Project | Intelligent Tourism Management & Revenue Optimisation.
 
 ---
 
