@@ -3,8 +3,7 @@ visualizations.py
 =================
 All Plotly chart builders for the Tourism Dashboard.
 
-Author : Tourism-AI Team
-Version: 1.0.0
+
 """
 
 from __future__ import annotations
@@ -61,6 +60,18 @@ QUALITATIVE = CHART_COLORS
 
 
 def _apply_theme(fig: go.Figure, title: str = "") -> go.Figure:
+    """Apply the global dashboard theme to a Plotly figure.
+
+    Sets consistent background colours, fonts, grid lines, hover label
+    styling, and legend formatting across all charts.
+
+    Args:
+        fig: The Plotly figure to style.
+        title: Optional chart title string. Displayed top-left in slate grey.
+
+    Returns:
+        The same figure with the theme applied in-place.
+    """
     fig.update_layout(
         plot_bgcolor   = CHART_THEME["bg"],
         paper_bgcolor  = CHART_THEME["paper_bg"],
@@ -140,6 +151,17 @@ def _apply_theme(fig: go.Figure, title: str = "") -> go.Figure:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def plot_revenue_distribution(df: pd.DataFrame) -> go.Figure:
+    """Plot side-by-side histograms of raw and log-transformed revenue.
+
+    Displaying both scales makes it easy to spot the long-tail nature of
+    tourism revenue while preserving visibility of the central distribution.
+
+    Args:
+        df: DataFrame containing a ``Revenue`` column with numeric values.
+
+    Returns:
+        A Plotly Figure with two histogram subplots (raw and log1p revenue).
+    """
     fig = make_subplots(rows=1, cols=2,
                         subplot_titles=["Revenue Distribution", "Log Revenue"])
     fig.add_trace(go.Histogram(x=df["Revenue"], nbinsx=40,
@@ -155,6 +177,19 @@ def plot_revenue_distribution(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_top_destinations(df: pd.DataFrame, n: int = 15) -> go.Figure:
+    """Plot a horizontal bar chart of the top N destinations by annual revenue.
+
+    Bars are colour-coded by tourism category and annotated with revenue
+    values for quick comparison.
+
+    Args:
+        df: DataFrame with columns ``Location``, ``Country``, ``Revenue``,
+            and ``Category``.
+        n: Number of top destinations to display. Defaults to 15.
+
+    Returns:
+        A Plotly Figure with a horizontal bar chart sorted ascending by revenue.
+    """
     top = df.nlargest(n, "Revenue")[["Location", "Country", "Revenue", "Category"]]
     top["Label"] = top["Location"] + " (" + top["Country"] + ")"
     fig = px.bar(
@@ -174,6 +209,19 @@ def plot_top_destinations(df: pd.DataFrame, n: int = 15) -> go.Figure:
 
 
 def plot_category_breakdown(df: pd.DataFrame) -> go.Figure:
+    """Plot average revenue and average visitors broken down by tourism category.
+
+    Displays two grouped bar charts side-by-side, sorted by descending average
+    revenue, to highlight which destination types perform best economically.
+
+    Args:
+        df: DataFrame with columns ``Category``, ``Revenue``, ``Visitors``,
+            ``Rating``, and ``Location``.
+
+    Returns:
+        A Plotly Figure with two bar subplots: avg revenue and avg visitors
+        per category.
+    """
     grp = df.groupby("Category").agg(
         Avg_Revenue   = ("Revenue",   "mean"),
         Avg_Visitors  = ("Visitors",  "mean"),
@@ -202,6 +250,19 @@ def plot_category_breakdown(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_country_map(df: pd.DataFrame) -> go.Figure:
+    """Render a choropleth world map shaded by total tourism revenue per country.
+
+    Hover tooltips display total visitors, average rating, and destination
+    count for each country.
+
+    Args:
+        df: DataFrame with columns ``Country``, ``Revenue``, ``Visitors``,
+            ``Rating``, and ``Location``.
+
+    Returns:
+        A Plotly Figure with a choropleth map using the sequential teal
+        colour scale.
+    """
     country_agg = df.groupby("Country").agg(
         Total_Revenue  = ("Revenue",  "sum"),
         Total_Visitors = ("Visitors", "sum"),
@@ -228,6 +289,20 @@ def plot_country_map(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_correlation_heatmap(df: pd.DataFrame) -> go.Figure:
+    """Plot a Pearson correlation heatmap for key numeric tourism features.
+
+    Only columns present in the DataFrame are included. The colour scale
+    diverges at zero so positive and negative correlations are immediately
+    distinguishable.
+
+    Args:
+        df: DataFrame containing one or more of: ``Visitors``, ``Rating``,
+            ``Revenue``, ``Revenue_per_Visitor``, ``Popularity_Score``,
+            ``Accommodation_Available``, ``High_Revenue_Potential``.
+
+    Returns:
+        A Plotly Figure with an annotated correlation heatmap.
+    """
     cols = ["Visitors", "Rating", "Revenue", "Revenue_per_Visitor",
             "Popularity_Score", "Accommodation_Available",
             "High_Revenue_Potential"]
@@ -251,6 +326,18 @@ def plot_correlation_heatmap(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_scatter_revenue_visitors(df: pd.DataFrame) -> go.Figure:
+    """Plot a log-log scatter of revenue vs visitor count coloured by category.
+
+    Samples up to 500 rows for performance. If ``statsmodels`` is installed
+    an OLS trendline is overlaid automatically.
+
+    Args:
+        df: DataFrame with columns ``Visitors``, ``Revenue``, ``Category``,
+            ``Rating``, ``Location``, and ``Country``.
+
+    Returns:
+        A Plotly Figure with a scatter plot on log-log axes.
+    """
     scatter_kwargs = {}
     try:
         import statsmodels.api  # noqa: F401
@@ -276,6 +363,17 @@ def plot_scatter_revenue_visitors(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_rating_distribution(df: pd.DataFrame) -> go.Figure:
+    """Plot violin charts of rating distributions split by tourism category.
+
+    Each violin includes an embedded box plot and individual outlier points,
+    giving a compact view of both distribution shape and spread.
+
+    Args:
+        df: DataFrame with columns ``Rating`` and ``Category``.
+
+    Returns:
+        A Plotly Figure with one violin per category.
+    """
     fig = px.violin(
         df, y="Rating", x="Category",
         box=True, points="outliers",
@@ -288,6 +386,18 @@ def plot_rating_distribution(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_high_revenue_pie(df: pd.DataFrame) -> go.Figure:
+    """Plot a donut chart showing the share of high-revenue-potential destinations.
+
+    The centre annotation displays the absolute count of high-potential
+    destinations for quick reference.
+
+    Args:
+        df: DataFrame with a binary ``High_Revenue_Potential`` column
+            (1 = high, 0 = standard).
+
+    Returns:
+        A Plotly Figure with a donut (hole=0.55) pie chart.
+    """
     counts = df["High_Revenue_Potential"].value_counts()
     fig = go.Figure(go.Pie(
         labels    = ["Standard Revenue", "High Revenue Potential"],
@@ -310,6 +420,18 @@ def plot_high_revenue_pie(df: pd.DataFrame) -> go.Figure:
 
 
 def plot_accommodation_impact(df: pd.DataFrame) -> go.Figure:
+    """Plot the impact of accommodation availability on average revenue and rating.
+
+    Displays two side-by-side bar charts comparing destinations with and
+    without on-site accommodation across both metrics.
+
+    Args:
+        df: DataFrame with columns ``Accommodation_Available`` (1/0),
+            ``Revenue``, ``Rating``, and ``Location``.
+
+    Returns:
+        A Plotly Figure with two bar subplots (avg revenue and avg rating).
+    """
     grp = df.groupby("Accommodation_Available").agg(
         Avg_Revenue = ("Revenue",  "mean"),
         Avg_Rating  = ("Rating",   "mean"),
@@ -335,6 +457,19 @@ def plot_accommodation_impact(df: pd.DataFrame) -> go.Figure:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def plot_confusion_matrix(conf_matrix: List[List[int]]) -> go.Figure:
+    """Plot an annotated confusion matrix heatmap for the binary classifier.
+
+    The two classes are labelled "Standard" and "High Revenue". Cell values
+    are displayed as integers directly on the heatmap tiles.
+
+    Args:
+        conf_matrix: A 2×2 nested list of integers in the format
+            ``[[TN, FP], [FN, TP]]`` as returned by
+            ``sklearn.metrics.confusion_matrix``.
+
+    Returns:
+        A Plotly Figure with a diverging-coloured heatmap and axis labels.
+    """
     labels = ["Standard", "High Revenue"]
     fig = go.Figure(go.Heatmap(
         z            = conf_matrix,
@@ -350,6 +485,19 @@ def plot_confusion_matrix(conf_matrix: List[List[int]]) -> go.Figure:
 
 
 def plot_feature_importances(fi: pd.Series, top_n: int = 12) -> go.Figure:
+    """Plot a horizontal bar chart of the top N XGBoost feature importances.
+
+    Bars are coloured on a sequential indigo scale proportional to importance
+    value, making the most influential features immediately visible.
+
+    Args:
+        fi: A pandas Series mapping feature names to importance scores,
+            sorted descending (as returned by the model training pipeline).
+        top_n: Number of top features to display. Defaults to 12.
+
+    Returns:
+        A Plotly Figure with a horizontal bar chart of feature importances.
+    """
     top = fi.head(top_n).sort_values()
     fig = go.Figure(go.Bar(
         x             = top.values,
@@ -363,7 +511,23 @@ def plot_feature_importances(fi: pd.Series, top_n: int = 12) -> go.Figure:
 
 
 def plot_metrics_gauge(metrics: Dict) -> go.Figure:
-    """Gauge charts for accuracy, recall, precision, F1."""
+    """Render four gauge indicators for classifier accuracy, recall, precision, and F1.
+
+    Each gauge is coloured with threshold bands:
+    - 0–70%: light grey (poor)
+    - 70–90%: light blue (acceptable)
+    - 90–100%: light green (target)
+
+    A dashed threshold line is drawn at 95% to mark the project target.
+
+    Args:
+        metrics: Dictionary with keys ``"accuracy"``, ``"recall"``,
+            ``"precision"``, and ``"f1"``; values are numeric percentages
+            (e.g. ``97.4``).
+
+    Returns:
+        A Plotly Figure with four indicator gauges in a single row.
+    """
     indicators = [
         ("Accuracy",  metrics.get("accuracy",  0)),
         ("Recall",    metrics.get("recall",    0)),
@@ -404,7 +568,21 @@ def plot_metrics_gauge(metrics: Dict) -> go.Figure:
 
 
 def plot_cv_scores(cv_scores: Dict[str, List[float]]) -> go.Figure:
-    """Bar chart of per-fold CV scores with mean ± std reference lines."""
+    """Plot per-fold cross-validation scores with mean ± std reference lines.
+
+    Renders one bar chart subplot per available metric (accuracy, recall, F1).
+    A dashed horizontal line annotated with the mean and standard deviation is
+    overlaid on each subplot.
+
+    Args:
+        cv_scores: Dictionary mapping metric names (``"accuracy"``,
+            ``"recall"``, ``"f1"``) to lists of per-fold percentage scores.
+            Missing keys are skipped gracefully.
+
+    Returns:
+        A Plotly Figure with bar subplots per metric. Returns an annotated
+        empty figure if no recognised metrics are present in ``cv_scores``.
+    """
     metrics_to_show = ["accuracy", "recall", "f1"]
     available = [m for m in metrics_to_show if m in cv_scores]
 
@@ -451,7 +629,23 @@ def plot_cv_scores(cv_scores: Dict[str, List[float]]) -> go.Figure:
 
 
 def plot_model_comparison(comparison: Dict[str, Dict], ensemble_metrics: Dict) -> go.Figure:
-    """Grouped bar chart comparing individual models vs ensemble."""
+    """Plot a grouped bar chart comparing individual base models against the stacking ensemble.
+
+    Metrics shown: accuracy, recall, precision, F1, and ROC-AUC. The ensemble
+    is appended as a separate model group so relative uplift is immediately
+    visible.
+
+    Args:
+        comparison: Dictionary mapping model name strings to metric dicts,
+            each containing keys ``"accuracy"``, ``"recall"``, ``"precision"``,
+            ``"f1"``, and ``"roc_auc"`` as numeric percentages.
+        ensemble_metrics: Metric dict for the stacking ensemble, same
+            structure as the per-model dicts in ``comparison``.
+
+    Returns:
+        A Plotly Figure with a grouped bar chart. Returns an annotated empty
+        figure if ``comparison`` is empty.
+    """
     if not comparison:
         fig = go.Figure()
         fig.add_annotation(text="No comparison data", xref="paper", yref="paper",
@@ -502,6 +696,20 @@ def plot_prediction_comparison(
     predicted: np.ndarray,
     title: str = "Actual vs Predicted",
 ) -> go.Figure:
+    """Plot a scatter of actual vs predicted regression values with a perfect-fit line.
+
+    Points are semi-transparent to show density. The dashed diagonal reference
+    line (y = x) makes over- and under-prediction easy to spot visually.
+
+    Args:
+        actual: 1-D array of ground-truth target values.
+        predicted: 1-D array of model-predicted values, same length as
+            ``actual``.
+        title: Chart title string. Defaults to ``"Actual vs Predicted"``.
+
+    Returns:
+        A Plotly Figure with a scatter trace and a perfect-fit reference line.
+    """
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=actual, y=predicted,
@@ -525,6 +733,20 @@ def plot_prediction_comparison(
 
 
 def plot_revenue_per_visitor_heatmap(df: pd.DataFrame) -> go.Figure:
+    """Plot a heatmap of mean revenue-per-visitor across tourism categories and countries.
+
+    The pivot table groups by ``Category`` (rows) and ``Country`` (columns).
+    Cells with no data are shown as blank. The diverging colour scale
+    highlights both high- and low-performing combinations.
+
+    Args:
+        df: DataFrame with columns ``Category``, ``Country``, and
+            ``Revenue_per_Visitor`` (numeric, USD).
+
+    Returns:
+        A Plotly Figure with a heatmap where colour encodes average revenue
+        per visitor.
+    """
     pivot = df.groupby(["Category", "Country"])["Revenue_per_Visitor"].mean().unstack()
     fig = go.Figure(go.Heatmap(
         z          = pivot.values,
