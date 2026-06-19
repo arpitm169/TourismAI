@@ -2,7 +2,7 @@
 model_training.py
 =================
 Trains high-accuracy classification and regression models for the
-Tourism Predictive Analytics System
+Tourism Predictive Analytics System.
 
 Targets:
   Classification : High_Revenue_Potential  (≥95 % acc, ≥96 % recall)
