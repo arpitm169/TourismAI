@@ -10,7 +10,7 @@ Run:
     streamlit run app.py
 """
 
-from __future__ import annotations
+from __future__ import annotation
 
 import html
 import os
