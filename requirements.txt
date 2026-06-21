@@ -33,4 +33,4 @@ faiss-cpu>=1.8.0
 # ─── Utilities ────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
 pydantic>=2.6.0
-tenacity>=8.2.
+tenacity>=8.2.0
