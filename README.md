@@ -176,4 +176,4 @@ docker run -p 8501:8501 --env-file .env tourism-ai
 ---
 
 ## 📄 License
-MIT — free to use for academic and commercial purposes
+MIT — free to use for academic and commercial purposes.
