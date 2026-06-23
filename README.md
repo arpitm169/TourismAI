@@ -174,6 +174,31 @@ docker run -p 8501:8501 --env-file .env tourism-ai
 **Training is slow**: Reduce `n_estimators` in `model_training.py` (e.g., 200 instead of 600).
 
 ---
+<h2>Screenshots</h2>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b862e70413076e8cb1bcdf317646c6f63a182967/Screenshot%202026-06-23%20232914.png" width="800">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b862e70413076e8cb1bcdf317646c6f63a182967/Screenshot%202026-06-23%20232941.png" width="800">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b862e70413076e8cb1bcdf317646c6f63a182967/Screenshot%202026-06-23%20233005.png" width="800">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b862e70413076e8cb1bcdf317646c6f63a182967/Screenshot%202026-06-23%20233040.png" width="800">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b862e70413076e8cb1bcdf317646c6f63a182967/Screenshot%202026-06-23%20233056.png" width="800">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b862e70413076e8cb1bcdf317646c6f63a182967/Screenshot%202026-06-23%20233136.png" width="800">
+</p>
 
 ## 📄 License
 MIT — free to use for academic and commercial purposes.
