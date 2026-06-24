@@ -199,8 +199,9 @@ docker run -p 8501:8501 --env-file .env tourism-ai
 <p align="center">
   <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b862e70413076e8cb1bcdf317646c6f63a182967/Screenshot%202026-06-23%20233136.png" width="800">
 </p>
+
 <p align="center">
-  <img src="https://github.com/arpitm169/TourismAI/blob/f4834b6781cdbb40f4aaa0d8d39ed1a2876a1f75/Screenshot%202026-06-24%20235154.png" width="800>
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b334d8294185178b01b9891130c76e969bad5df6/Screenshot%202026-06-24%20235154.png" width="800">
 </p>
 
 
