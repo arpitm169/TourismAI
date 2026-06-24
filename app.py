@@ -43,6 +43,7 @@ from agents         import (
     build_df_summary,
     build_metrics_summary,
     AgentRole,
+    DEFAULT_MODEL,
 )
 from visualizations import (
     plot_revenue_distribution,
@@ -167,27 +168,27 @@ html, body, [class*="css"] {
 GLOBAL_CSS = """
 <style>
 :root {
-    --bg-main: #faf8ff;
+    --bg-main: #f9fdf9;
     --bg-card: #ffffff;
-    --bg-sidebar: #f5f2ff;
-    --accent-primary: #c4b5fd;
-    --accent-secondary: #5b4a8a;
-    --accent-light: #ede9fe;
-    --border-color: #e5d8fb;
-    --text-primary: #374151;
-    --text-secondary: #7c6fcd;
-    --text-muted: #9ca3af;
+    --bg-sidebar: #edf7ed;
+    --accent-primary: #81c784;
+    --accent-secondary: #2e7d52;
+    --accent-light: #e8f5e9;
+    --border-color: #c8e6c9;
+    --text-primary: #2e3d30;
+    --text-secondary: #2e7d52;
+    --text-muted: #66bb6a;
     --success: #a7f3d0;
     --warning: #fde68a;
     --error: #fca5a5;
-    --user-bubble: #dbeafe;
+    --user-bubble: #e8f5e9;
     --agent-bubble: #ffffff;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 html, body, [class*="css"], .stApp {
-    color: #374151;
+    color: var(--text-primary);
     font-family: 'Inter', sans-serif;
 }
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
@@ -196,9 +197,12 @@ html, body, [class*="css"], .stApp {
 [data-testid="stHeader"] {
     background: transparent !important;
 }
-[data-testid="stSidebarCollapsedControl"] {
-    display: block !important;
-    padding: 0.5rem !important;
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+button[kind="header"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 .block-container { padding: 1.5rem 2rem 2.5rem; }
 #MainMenu, footer { visibility: hidden; }
@@ -206,25 +210,27 @@ header { background: transparent !important; }
 hr { border-color: var(--border-color) !important; opacity: .75; }
 
 h1, h1 span {
-    color: #5b4a8a !important;
+    color: var(--accent-secondary) !important;
     font-size: 1.8rem !important;
     font-weight: 700 !important;
 }
 h2, h2 span {
-    color: #5b4a8a !important;
+    color: var(--accent-secondary) !important;
     font-weight: 600 !important;
 }
 h3, h3 span {
-    color: #5b4a8a !important;
+    color: var(--accent-secondary) !important;
     font-weight: 500 !important;
 }
-p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
+p, li, label, [data-testid="stMarkdownContainer"] { color: var(--text-primary); }
 
 [data-testid="stSidebar"], [data-testid="stSidebarContent"] {
     background: var(--bg-sidebar) !important;
 }
 [data-testid="stSidebar"] {
     border-right: 1px solid var(--border-color);
+    display: block !important;
+    visibility: visible !important;
 }
 [data-testid="stSidebar"] * {
     color: var(--text-primary) !important;
@@ -250,13 +256,13 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(167,139,250,.08);
+    box-shadow: 0 2px 12px rgba(76,175,130,.08);
     margin-bottom: .75rem;
     padding: 1.25rem 1.5rem;
     transition: transform .2s ease, box-shadow .2s ease;
 }
 .metric-card:hover, .rec-card:hover {
-    box-shadow: 0 6px 18px rgba(167,139,250,.14);
+    box-shadow: 0 6px 18px rgba(76,175,130,.14);
     transform: translateY(-1px);
 }
 .metric-value {
@@ -284,7 +290,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(167,139,250,.08);
+    box-shadow: 0 2px 12px rgba(76,175,130,.08);
     padding: 1rem;
 }
 [data-testid="stMetricLabel"] p { color: var(--text-secondary) !important; }
@@ -304,10 +310,10 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stFormSubmitButton"] button,
 [data-testid="stBaseButton-primary"],
 [data-testid="stFileUploaderDropzone"] button {
-    background: linear-gradient(135deg, #c4b5fd, #a78bfa) !important;
+    background: linear-gradient(135deg, #81c784, #2e7d52) !important;
     border: none !important;
     border-radius: 10px !important;
-    box-shadow: 0 2px 8px rgba(124,111,205,.25) !important;
+    box-shadow: 0 2px 8px rgba(46,125,82,.25) !important;
     color: #ffffff !important;
     font-weight: 600 !important;
     padding: .5rem 1.5rem !important;
@@ -334,7 +340,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stNumberInput"] input,
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
 [data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
-    background: #fdfbff !important;
+    background: #f9fdf9 !important;
     border: 1.5px solid var(--border-color) !important;
     border-radius: 10px !important;
     color: var(--text-primary) !important;
@@ -346,7 +352,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within,
 [data-testid="stMultiSelect"] div[data-baseweb="select"] > div:focus-within {
     border-color: var(--accent-primary) !important;
-    box-shadow: 0 0 0 3px rgba(167,139,250,.15) !important;
+    box-shadow: 0 0 0 3px rgba(76,175,130,.15) !important;
 }
 [data-testid="stTextInput"] input::placeholder,
 [data-testid="stTextArea"] textarea::placeholder {
@@ -357,7 +363,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(167,139,250,.08);
+    box-shadow: 0 2px 12px rgba(76,175,130,.08);
     overflow: hidden;
 }
 [data-testid="stExpander"] details { border: none !important; }
@@ -394,14 +400,14 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 [data-testid="stDataFrame"], [data-testid="stTable"] {
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(167,139,250,.08);
+    box-shadow: 0 2px 12px rgba(76,175,130,.08);
     overflow: hidden;
 }
 
 [data-testid="stAlert"] {
     border: 0;
     border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(167,139,250,.08);
+    box-shadow: 0 2px 10px rgba(76,175,130,.08);
 }
 [data-testid="stAlert"][kind="success"] {
     background: #ecfdf5 !important;
@@ -420,8 +426,8 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 }
 [data-testid="stAlert"][kind="info"] {
     background: #eff6ff !important;
-    border-left: 4px solid #a78bfa !important;
-    color: #3730a3 !important;
+    border-left: 4px solid #81c784 !important;
+    color: #1b5e3b !important;
 }
 [data-testid="stAlert"] * { color: inherit !important; }
 
@@ -479,7 +485,7 @@ p, li, label, [data-testid="stMarkdownContainer"] { color: #374151; }
 }
 
 [data-testid="stFileUploaderDropzone"] {
-    background: #fdfbff !important;
+    background: #f9fdf9 !important;
     border: 1.5px dashed var(--border-color) !important;
     border-radius: 12px !important;
 }
@@ -591,11 +597,10 @@ def render_sidebar() -> str:
             del os.environ["GOOGLE_API_KEY"]
 
         model = st.selectbox("Model", [
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash-001",
-            "gemini-1.5-flash-002",
-            "gemini-1.5-flash-8b",
-            "gemini-2.0-flash",
+            DEFAULT_MODEL,
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-pro",
         ])
         st.info("After changing the model, click Reinit Agents below to apply.")
 
@@ -678,7 +683,7 @@ def _build_rag(df: pd.DataFrame) -> None:
     _build_agents()
 
 
-def _build_agents(api_key: str = "", model: str = "gemini-1.5-flash-latest") -> None:
+def _build_agents(api_key: str = "", model: str = DEFAULT_MODEL) -> None:
     rag = st.session_state.rag
     if rag is None:
         return
@@ -1426,7 +1431,7 @@ def page_chat() -> None:
     /* ── Chat Input Area (text_area) ─────────────────────────────────── */
     .chat-page-wrap [data-testid="stTextArea"] textarea,
     [data-testid="stForm"] [data-testid="stTextArea"] textarea {
-        background: #fdfbff !important;
+        background: #f9fdf9 !important;
         border: 1.5px solid var(--border-color) !important;
         border-radius: 12px !important;
         font-size: 14px !important;
@@ -1441,7 +1446,7 @@ def page_chat() -> None:
 
     /* ── Send Button (primary / first form_submit) ───────────────────── */
     .chat-page-wrap [data-testid="stFormSubmitButton"]:first-of-type button {
-        background: linear-gradient(135deg, #c4b5fd, #a78bfa) !important;
+        background: linear-gradient(135deg, #81c784, #2e7d52) !important;
         color: white !important;
         border-radius: 10px !important;
         border: none !important;
@@ -1473,7 +1478,7 @@ def page_chat() -> None:
         background: #ffffff !important;
         border: 1px solid #e5d8fb !important;
         border-radius: 20px !important;
-        color: #5b4a8a !important;
+        color: var(--accent-secondary) !important;
         font-size: 13px !important;
         padding: 6px 16px !important;
         transition: background 0.2s ease;
@@ -1696,17 +1701,6 @@ def main() -> None:
         "💬 Agent Chat"         : page_chat,
         "🎯 Recommendations"    : page_recommendations,
     }
-
-    c1, c2 = st.columns([5, 2])
-    with c2:
-        if st.button("🔄 Reset UI", help="Refresh page to reset sidebar state"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    st.markdown(
-        "<small style='color:var(--text-secondary)'>💡 Sidebar toggle (☰) is in the top-left corner. If hidden, try refreshing or resizing the window.</small>",
-        unsafe_allow_html=True
-    )
 
     page = st.radio(
         "Navigation",

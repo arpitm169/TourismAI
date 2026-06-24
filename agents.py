@@ -71,7 +71,7 @@ except ImportError:
     LG_AVAILABLE = False
 
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash"
 
 
 @retry(

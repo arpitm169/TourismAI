@@ -11,6 +11,36 @@ Version: 1.0.0
 
 from __future__ import annotations
 
+# ─── Quick Patch for Python 3.13 rglob compatibility on Windows ──────────────
+import pathlib
+import os
+import fnmatch
+
+_original_rglob = pathlib.Path.rglob
+
+def _patched_rglob(self, pattern, *, case_sensitive=None, recurse_symlinks=False):
+    path_str = str(self)
+    if "transformers" in path_str and "models" in path_str:
+        results = []
+        for root, _, files in os.walk(path_str):
+            for file in files:
+                if case_sensitive:
+                    match = fnmatch.fnmatchcase(file, pattern)
+                elif case_sensitive is False:
+                    match = fnmatch.fnmatch(file.lower(), pattern.lower())
+                else:
+                    if os.name == 'nt':
+                        match = fnmatch.fnmatch(file.lower(), pattern.lower())
+                    else:
+                        match = fnmatch.fnmatchcase(file, pattern)
+                if match:
+                    results.append(pathlib.Path(root) / file)
+        return iter(results)
+    return _original_rglob(self, pattern, case_sensitive=case_sensitive, recurse_symlinks=recurse_symlinks)
+
+pathlib.Path.rglob = _patched_rglob
+# ─────────────────────────────────────────────────────────────────────────────
+
 import hashlib
 import textwrap
 from pathlib import Path
