@@ -204,6 +204,10 @@ docker run -p 8501:8501 --env-file .env tourism-ai
   <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/b334d8294185178b01b9891130c76e969bad5df6/Screenshot%202026-06-24%20235154.png" width="800">
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arpitm169/TourismAI/d1304dc47a6fe7bebe39c138829d2be59d62fdf7/Screenshot%202026-06-24%20235218.png" width="800">
+</p>
+
 
 ## 📄 License
 MIT — free to use for academic and commercial purposes.
